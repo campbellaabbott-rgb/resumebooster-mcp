@@ -48,17 +48,14 @@ Or clone this repository: its `.mcp.json` is a project-scope server, so Claude C
 /plugin install resumebooster@resumebooster
 ```
 
-The `.mcp.json` in this repo is keyless. The env-header variant, if you want a key read from the environment (`${RESUMEBOOSTER_KEY:-}` expands to the key when set and to nothing otherwise, so the unkeyed tools keep working without one):
+The `.mcp.json` in this repo reads the key from the environment: `${RESUMEBOOSTER_KEY:-}` expands to the key when `RESUMEBOOSTER_KEY` is set and to nothing otherwise, and the server answers an empty header as the unkeyed tier — so the same file works with a key and without one. The keyless variant, if you would rather no header be sent at all:
 
 ```json
 {
   "mcpServers": {
     "resumebooster": {
       "type": "http",
-      "url": "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp",
-      "headers": {
-        "Authorization": "Bearer ${RESUMEBOOSTER_KEY:-}"
-      }
+      "url": "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp"
     }
   }
 }
@@ -193,11 +190,11 @@ Cline can also read [llms-install.md](./llms-install.md) and do this itself.
 
 ### ChatGPT (developer mode)
 
-Settings → Connectors → Advanced → Developer mode, then add a connector with the URL `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp`. Choose **Mixed** or **OAuth** — there is no field for a key — and `search` and `fetch` answer before any sign-in.
+Settings → Security and login → Developer mode; then chatgpt.com/plugins → **+** → paste `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp`, name it, **Create** → open your personal plugins and install it → in a chat switch the tab to **Work** and type `@` followed by the name you gave it. Choose **Mixed** so `search` and `fetch` answer before sign-in (OAuth alone asks for sign-in first); there is no field for a key.
 
 ### claude.ai and Claude Desktop
 
-Settings → Connectors → **Add custom connector** → paste `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp` → choose **Sign in when needed** and **Register automatically** for the OAuth client. The unkeyed tools answer at once; a keyed tool shows a Connect card.
+**Customize → Connectors → Add custom connector** → paste `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp` → (if asked) **Sign in when needed** and **Register automatically** for the OAuth client → **Add**. The unkeyed tools answer at once; a keyed tool shows a Connect card.
 
 ### Any other MCP client
 
@@ -210,7 +207,7 @@ POST JSON-RPC to `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mc
 
 ## Privacy
 
-Every search you run travels to the server as the query you typed; the server keeps only the sha256 of a key, never the key. The tools never write to your machine. A key belongs in an environment variable, a keychain prompt or a host's secret store — never in a file you commit, a URL, a badge or a base64 config. Nothing in this repository carries a key.
+Every search you run travels to the server as the query you typed. A key is stored as its hash and its first characters, never the key. For unkeyed calls the server keeps a truncated hash of your network address for the daily cap and drops it after 7 days; the address itself is never stored. The tools never write to your machine. A key belongs in an environment variable, a keychain prompt or a host's secret store — never in a file you commit, a URL, a badge or a base64 config. Nothing in this repository carries a key.
 
 ## This repository
 

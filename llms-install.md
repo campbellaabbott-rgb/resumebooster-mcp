@@ -109,7 +109,7 @@ Windsurf:
 
 ## What the tools are
 
-Read tools (any free key; the first four need no key at all): `board_stats`, `search_jobs`, `search`, `fetch`, `get_job`, `get_jobs`, `check_jobs_open`, `check_apply_support`, `employer_hiring_record`, `employer_growth`, `key_status`, `debug_search`.
+Unkeyed (no key at all): `board_stats`, `search_jobs`, `search`, `fetch`. Any free key adds: `get_job`, `get_jobs`, `check_jobs_open`, `check_apply_support`, `employer_hiring_record`, `employer_growth`, `key_status`, `debug_search`.
 Paid or pass: `fit_resume`. Apply (account with a mandate): `request_application`, `application_status`.
 
 A `https://resumebooster.work/jobs?job=<id>` link's `id` is the argument `get_job`, `fetch`, `check_apply_support` and `request_application` take.

@@ -5,10 +5,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: resumebooster-mcp
+      # The website repo is checked out BESIDE this one so the cross-runtime
+      # mirror test runs here rather than skipping: in CI an absent sibling
+      # fails the test (a mirror nobody enforces is the drift it exists to
+      # catch). If that repo is private, add a read-only token as the
+      # SIBLING_REPO_TOKEN secret; the checkout falls back to GITHUB_TOKEN.
+      - uses: actions/checkout@v4
+        with:
+          repository: campbellaabbott-rgb/resume-signal-pro
+          path: resume-signal-pro
+          token: ${{ secrets.SIBLING_REPO_TOKEN || github.token }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       # No dependencies to install: the build, the schema check and the test
-      # are plain node. The website-mirror test skips itself here (the sibling
-      # repo is not checked out) and reports why.
+      # are plain node.
       - run: npm test
+        working-directory: resumebooster-mcp

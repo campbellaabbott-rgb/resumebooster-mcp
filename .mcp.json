@@ -2,7 +2,10 @@
   "mcpServers": {
     "resumebooster": {
       "type": "http",
-      "url": "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp"
+      "url": "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp",
+      "headers": {
+        "Authorization": "Bearer ${RESUMEBOOSTER_KEY:-}"
+      }
     }
   }
 }

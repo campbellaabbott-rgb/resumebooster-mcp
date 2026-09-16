@@ -44,5 +44,6 @@
   ],
   "anonTools": ["board_stats", "search_jobs", "search", "fetch"],
   "anonCaps": { "perAddressPerDay": 25, "globalPerDay": 2000, "searchRows": 10 },
-  "freeKeyDailyQuota": 1000
+  "freeKeyDailyQuota": 1000,
+  "anonAddressHashRetentionDays": 7
 }

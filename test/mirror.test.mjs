@@ -67,7 +67,11 @@ test("each manifest carries the one URL and the one name", () => {
   assert.deepEqual(Object.keys(mcp.mcpServers), [C.serverName]);
   assert.equal(mcp.mcpServers[C.serverName].url, C.mcpUrl);
   assert.equal(mcp.mcpServers[C.serverName].type, "http");
-  assert.equal(mcp.mcpServers[C.serverName].headers, undefined, ".mcp.json is keyless by decision");
+  // PLAN §6(a): the header reads the key from the environment and expands to
+  // nothing when unset, which the server answers as the unkeyed tier. The
+  // env var's name is not credential-shaped (Claude Code blanks those).
+  assert.deepEqual(mcp.mcpServers[C.serverName].headers, { Authorization: `Bearer \${${C.keyEnvVar}:-}` }, ".mcp.json carries the env-header form the plan specifies");
+  assert.ok(!/rb_live_[A-Za-z0-9]{8,}/.test(JSON.stringify(mcp)), "no key in the file");
 
   const plugin = readJson(".claude-plugin/plugin.json");
   assert.equal(plugin.name, C.serverName);
@@ -132,6 +136,32 @@ test("the README's links, count and tool names come from the constants", () => {
   for (const forbidden of [/\bhired\b/i, /\$\d+/, /leaderboard/i, /fastest[- ]growing/i]) {
     assert.ok(!forbidden.test(readme), `README must not say ${forbidden}`);
   }
+});
+
+test("every generated markdown file spells no count, no price and no takedown-as-hire (project_claim_drift)", async () => {
+  const { GENERATED } = await import("../scripts/build.mjs");
+  const md = GENERATED.filter((f) => f.endsWith(".md"));
+  assert.ok(md.length >= 4, `expected the README, llms-install, SETUP and the skills: ${md.join(",")}`);
+  // A spelled count beside a noun the constants own (tools, tier members,
+  // calls, rows, ids) — "the first four", "15 tools" — must be derived, so
+  // the only digits allowed beside those nouns are the constants' values.
+  // "one" is an article ("one page of", "one call") and is not judged.
+  const spelledCount = /\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty)\b(?=[^.\n]{0,40}\b(?:tools?|need no key|calls?|rows?|ids?)\b)/i;
+  const allowedDigits = new Set([C.tools.length, C.anonTools.length, C.anonCaps.perAddressPerDay, C.anonCaps.globalPerDay, C.anonCaps.searchRows, C.freeKeyDailyQuota, C.anonAddressHashRetentionDays].map(String));
+  for (const f of md) {
+    const text = readText(f);
+    assert.ok(!spelledCount.test(text), `${f} spells a count in words: ${spelledCount.exec(text)?.[0]}`);
+    for (const m of text.matchAll(/\b(\d+)\s+(?:tools?|calls|rows|ids|days)\b/g)) {
+      assert.ok(allowedDigits.has(m[1]), `${f} types ${m[0]} — not one of the constants' values`);
+    }
+    for (const forbidden of [/\bhired\b/i, /\$\d+/, /leaderboard/i, /fastest[- ]growing/i]) {
+      assert.ok(!forbidden.test(text), `${f} must not say ${forbidden}`);
+    }
+  }
+  // The retention the privacy paragraph states is the mirrored constant, and
+  // the constant is the one mcp_anon_check prunes at (checked cross-runtime
+  // below when the website repo is present).
+  assert.ok(readText("README.md").includes(`drops it after ${C.anonAddressHashRetentionDays} days`));
 });
 
 test("no file in the repo carries a key or a token", () => {
@@ -232,15 +262,32 @@ test("the schema check bites: a marketplace missing owner, a plugin with no name
 // ---------------------------------------------------------------------------
 // The cross-runtime mirror. Comments are stripped before any regex runs so a
 // name written in prose can neither satisfy nor fail the check.
-const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+// Block comments, whole-line comments AND trailing comments go (a `//` not
+// preceded by `:` — a URL's `https://` stays), so a tool entry written in a
+// trailing comment can neither satisfy nor fail the parse.
+const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:\\])\/\/.*$/gm, "$1");
+
+test("the comment stripper drops a trailing comment on a code line and keeps a URL", () => {
+  const src = '{ name: "real", tier: "read" }, // { name: "ghost", tier: "read" }\nconst u = "https://example.test/x"; // trailing';
+  const out = stripComments(src);
+  assert.ok(!out.includes("ghost"), "a tool entry in a trailing comment must not survive");
+  assert.ok(out.includes('name: "real", tier: "read"'));
+  assert.ok(out.includes("https://example.test/x"), "a URL's // is not a comment");
+});
 
 const siblingDir = process.env.RESUME_SIGNAL_PRO_DIR ?? join(ROOT, "..", "resume-signal-pro");
 const mirrorFile = join(siblingDir, "src", "config", "mcp-tools.ts");
 
+// Locally the test skips with a reason when the website repo is not beside
+// this one. In CI (the workflow checks the sibling out) an absent sibling is
+// a FAILURE, not a skip: a mirror nobody enforces is the drift this file
+// exists to catch. Set MIRROR_SKIP_OK=1 to allow the skip in CI knowingly.
+const inCi = !!process.env.CI && !process.env.MIRROR_SKIP_OK;
 test(
   "the tool list, unkeyed tier, caps and quota match resume-signal-pro/src/config/mcp-tools.ts",
-  { skip: existsSync(mirrorFile) ? false : `website repo not beside this one (${mirrorFile}); mcp.config.json.mirror.at says which commit the list was copied from` },
+  { skip: existsSync(mirrorFile) || inCi ? false : `website repo not beside this one (${mirrorFile}); mcp.config.json.mirror.at says which commit the list was copied from` },
   () => {
+    assert.ok(existsSync(mirrorFile), `CI must check the website repo out beside this one (${mirrorFile}) — the mirror is unenforced otherwise; MIRROR_SKIP_OK=1 skips knowingly`);
     const ts = stripComments(readFileSync(mirrorFile, "utf8"));
     const block = ts.match(/export const MCP_TOOLS[^=]*=\s*\[([\s\S]*?)\n\];/);
     assert.ok(block, "MCP_TOOLS array not found");
@@ -260,6 +307,17 @@ test(
     const quota = ts.match(/MCP_FREE_KEY_DAILY_QUOTA\s*=\s*(\d+)/);
     assert.ok(quota, "MCP_FREE_KEY_DAILY_QUOTA not found");
     assert.equal(C.freeKeyDailyQuota, Number(quota[1]));
+
+    // The address-hash retention the privacy paragraph states is the prune
+    // inside the winning mcp_anon_check definition (comment-stripped SQL).
+    const migDir = join(siblingDir, "supabase", "migrations");
+    const defining = readdirSync(migDir).filter((n) => n.endsWith(".sql")).sort()
+      .filter((n) => readFileSync(join(migDir, n), "utf8").includes("FUNCTION public.mcp_anon_check("));
+    assert.ok(defining.length > 0, "no migration defines mcp_anon_check");
+    const sql = readFileSync(join(migDir, defining.at(-1)), "utf8").replace(/--[^\n]*/g, "");
+    const prune = sql.match(/DELETE FROM public\.mcp_anon_rate r WHERE r\.day < v_today - (\d+);/);
+    assert.ok(prune, "mcp_anon_check's prune statement not found — RE-ANCHOR");
+    assert.equal(C.anonAddressHashRetentionDays, Number(prune[1]), "the README's retention drifted from mcp_anon_check's prune");
 
     const env = join(siblingDir, ".env");
     if (existsSync(env)) {

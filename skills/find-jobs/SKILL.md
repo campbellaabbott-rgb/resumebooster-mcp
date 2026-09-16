@@ -1,6 +1,6 @@
 ---
 name: find-jobs
-description: Search the live Resume Booster Job Board board for a person, verify the shortlist is still open, and only then discuss applying. Use for any job search, "is this posting still open", employer hiring record, or apply request.
+description: Search the live Resume Booster Job Board for a person, verify the shortlist is still open, and only then discuss applying. Use for any job search, "is this posting still open", employer hiring record, or apply request.
 ---
 
 # Find jobs on the board

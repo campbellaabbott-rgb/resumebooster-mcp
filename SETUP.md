@@ -5,13 +5,13 @@ description: Connect the Resume Booster Job Board MCP server with a free key. Us
 
 # Set up the Resume Booster Job Board connection
 
-This plugin's `.mcp.json` registers `resumebooster` at `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp` with no key. board_stats, search_jobs, search and fetch answer with no key at all, so a fresh connection works on its first call from any host. Everything else needs a free key.
+This plugin's `.mcp.json` registers `resumebooster` at `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp` and reads the key from `RESUMEBOOSTER_KEY` — unset, it sends no key. board_stats, search_jobs, search and fetch answer with no key at all, so a fresh connection works on its first call from any host. Everything else needs a free key.
 
 1. Tell the person to open https://resumebooster.work/data-api and mint a key (it starts with `rb_live_`). Do not ask them to paste it into the chat; ask them to put it in their shell environment:
 
        export RESUMEBOOSTER_KEY=rb_live_...your key...
 
-2. Register a keyed copy of the server for every project (the plugin's keyless one can stay):
+2. Reconnect: the plugin's server reads `RESUMEBOOSTER_KEY` on its next start. If the server was added by hand without the header, register a keyed copy instead:
 
        claude mcp add --transport http --scope user resumebooster https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp --header "Authorization: Bearer $RESUMEBOOSTER_KEY"
 

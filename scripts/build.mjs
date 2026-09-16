@@ -57,9 +57,14 @@ const vscodeBadgeImg = "https://img.shields.io/badge/VS_Code-Install_Server-0098
 const registryBadgeImg = `https://img.shields.io/badge/MCP_Registry-${encodeURIComponent(C.registryName).replace(/-/g, "--")}-blue`;
 
 // --------------------------------------------------------------- manifests
+// PLAN §6(a) / §5.2: the header reads the key from the environment and
+// expands to nothing when it is unset, which the server answers as the
+// unkeyed tier (an empty bearer is trimmed to no bearer) — so one file
+// serves a cloner with a key and a cloner without one. The env var's name
+// is not credential-shaped (Claude Code blanks those in remote headers).
 const mcpJson = {
   mcpServers: {
-    [NAME]: { type: "http", url: URL },
+    [NAME]: { type: "http", url: URL, headers: { Authorization: `Bearer \${${ENV}:-}` } },
   },
 };
 
@@ -147,11 +152,7 @@ const serverJson = {
 // ------------------------------------------------------------ host blocks
 const claudeCodeKeyless = `claude mcp add --transport http ${NAME} ${URL}`;
 const claudeCodeKeyed = `claude mcp add --transport http --scope user ${NAME} ${URL} --header "Authorization: Bearer $${ENV}"`;
-const mcpJsonKeyed = JSON.stringify(
-  { mcpServers: { [NAME]: { type: "http", url: URL, headers: { Authorization: `Bearer \${${ENV}:-}` } } } },
-  null,
-  2,
-);
+const mcpJsonKeyless = JSON.stringify({ mcpServers: { [NAME]: { type: "http", url: URL } } }, null, 2);
 const cursorJsonKeyed = JSON.stringify(
   { mcpServers: { [NAME]: { url: URL, headers: { Authorization: `Bearer ${KEY_PLACEHOLDER}` } } } },
   null,
@@ -187,7 +188,7 @@ const tierTable = `| Tier | Tools | What opens it |
 
 const privacy = `## Privacy
 
-Every search you run travels to the server as the query you typed; the server keeps only the sha256 of a key, never the key. The tools never write to your machine. A key belongs in an environment variable, a keychain prompt or a host's secret store — never in a file you commit, a URL, a badge or a base64 config. Nothing in this repository carries a key.`;
+Every search you run travels to the server as the query you typed. A key is stored as its hash and its first characters, never the key. For unkeyed calls the server keeps a truncated hash of your network address for the daily cap and drops it after ${C.anonAddressHashRetentionDays} days; the address itself is never stored. The tools never write to your machine. A key belongs in an environment variable, a keychain prompt or a host's secret store — never in a file you commit, a URL, a badge or a base64 config. Nothing in this repository carries a key.`;
 
 const unkeyedSentence = `${prose(ANON)} answer with no key at all, so a fresh connection works on its first call from any host.`;
 const jobIdSentence = `A \`${C.jobsPage}?job=<id>\` link's \`id\` is the argument \`get_job\`, \`fetch\`, \`check_apply_support\` and \`request_application\` take.`;
@@ -239,10 +240,10 @@ ${pluginAdd}
 ${pluginInstall}
 \`\`\`
 
-The \`.mcp.json\` in this repo is keyless. The env-header variant, if you want a key read from the environment (\`\${${ENV}:-}\` expands to the key when set and to nothing otherwise, so the unkeyed tools keep working without one):
+The \`.mcp.json\` in this repo reads the key from the environment: \`\${${ENV}:-}\` expands to the key when \`${ENV}\` is set and to nothing otherwise, and the server answers an empty header as the unkeyed tier — so the same file works with a key and without one. The keyless variant, if you would rather no header be sent at all:
 
 \`\`\`json
-${mcpJsonKeyed}
+${mcpJsonKeyless}
 \`\`\`
 
 ### Cursor
@@ -319,11 +320,11 @@ Cline can also read [llms-install.md](./llms-install.md) and do this itself.
 
 ### ChatGPT (developer mode)
 
-Settings → Connectors → Advanced → Developer mode, then add a connector with the URL \`${URL}\`. Choose **Mixed** or **OAuth** — there is no field for a key — and \`search\` and \`fetch\` answer before any sign-in.
+Settings → Security and login → Developer mode; then chatgpt.com/plugins → **+** → paste \`${URL}\`, name it, **Create** → open your personal plugins and install it → in a chat switch the tab to **Work** and type \`@\` followed by the name you gave it. Choose **Mixed** so \`search\` and \`fetch\` answer before sign-in (OAuth alone asks for sign-in first); there is no field for a key.
 
 ### claude.ai and Claude Desktop
 
-Settings → Connectors → **Add custom connector** → paste \`${URL}\` → choose **Sign in when needed** and **Register automatically** for the OAuth client. The unkeyed tools answer at once; a keyed tool shows a Connect card.
+**Customize → Connectors → Add custom connector** → paste \`${URL}\` → (if asked) **Sign in when needed** and **Register automatically** for the OAuth client → **Add**. The unkeyed tools answer at once; a keyed tool shows a Connect card.
 
 ### Any other MCP client
 
@@ -405,7 +406,7 @@ ${windsurfJson.split("\n").map((l) => "    " + l).join("\n")}
 
 ## What the tools are
 
-Read tools (any free key; the first four need no key at all): ${list([...ANON, ...KEYED_READ])}.
+Unkeyed (no key at all): ${list(ANON)}. Any free key adds: ${list(KEYED_READ)}.
 Paid or pass: ${list(PAID)}. Apply (account with a mandate): ${list(APPLY)}.
 
 ${jobIdSentence}
@@ -421,13 +422,13 @@ description: Connect the ${C.displayName} MCP server with a free key. Use when t
 
 # Set up the ${C.displayName} connection
 
-This plugin's \`.mcp.json\` registers \`${NAME}\` at \`${URL}\` with no key. ${unkeyedSentence} Everything else needs a free key.
+This plugin's \`.mcp.json\` registers \`${NAME}\` at \`${URL}\` and reads the key from \`${ENV}\` — unset, it sends no key. ${unkeyedSentence} Everything else needs a free key.
 
 1. Tell the person to open ${C.keyPage} and mint a key (it starts with \`${C.keyPrefix}\`). Do not ask them to paste it into the chat; ask them to put it in their shell environment:
 
        export ${ENV}=${KEY_PLACEHOLDER}
 
-2. Register a keyed copy of the server for every project (the plugin's keyless one can stay):
+2. Reconnect: the plugin's server reads \`${ENV}\` on its next start. If the server was added by hand without the header, register a keyed copy instead:
 
        ${claudeCodeKeyed}
 
@@ -438,7 +439,7 @@ Never write the key into \`.mcp.json\`, a URL, or a file that is committed. If \
 
 const findJobsSkill = `---
 name: find-jobs
-description: Search the live ${C.displayName} board for a person, verify the shortlist is still open, and only then discuss applying. Use for any job search, "is this posting still open", employer hiring record, or apply request.
+description: Search the live ${C.displayName} for a person, verify the shortlist is still open, and only then discuss applying. Use for any job search, "is this posting still open", employer hiring record, or apply request.
 ---
 
 # Find jobs on the board
