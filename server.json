@@ -1,0 +1,35 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "work.resumebooster/jobs",
+  "title": "Resume Booster Job Board",
+  "description": "Job search over employers' own hiring systems. Search with no key; a free key opens every read tool.",
+  "version": "1.0.0",
+  "websiteUrl": "https://resumebooster.work/agents",
+  "repository": {
+    "url": "https://github.com/campbellaabbott-rgb/resumebooster-mcp",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://resumebooster.work/icons/icon-512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Optional. Bearer rb_live_... from https://resumebooster.work/data-api (free). Without it board_stats, search_jobs, search and fetch still answer.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

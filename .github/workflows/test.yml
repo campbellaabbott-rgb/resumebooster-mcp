@@ -1,0 +1,14 @@
+name: test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # No dependencies to install: the build, the schema check and the test
+      # are plain node. The website-mirror test skips itself here (the sibling
+      # repo is not checked out) and reports why.
+      - run: npm test

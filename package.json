@@ -1,0 +1,14 @@
+{
+  "name": "resumebooster-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Install files for the Resume Booster job board MCP server: Claude Code plugin, Gemini CLI extension, MCP Registry entry, per-host one-liners.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "verify": "node scripts/verify.mjs",
+    "test": "node scripts/build.mjs --check && node scripts/verify.mjs && node --test test/*.test.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}

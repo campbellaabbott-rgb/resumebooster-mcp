@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "resumebooster",
+  "version": "1.0.0",
+  "description": "Job search over employers' own hiring systems. Search with no key; a free key opens every read tool.",
+  "author": {
+    "name": "Resume Booster",
+    "url": "https://resumebooster.work"
+  },
+  "homepage": "https://resumebooster.work/agents",
+  "repository": "https://github.com/campbellaabbott-rgb/resumebooster-mcp",
+  "license": "MIT",
+  "keywords": [
+    "jobs",
+    "job-search",
+    "job-board",
+    "mcp",
+    "hiring",
+    "careers"
+  ]
+}

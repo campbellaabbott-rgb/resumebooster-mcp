@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "resumebooster",
+  "owner": {
+    "name": "Resume Booster",
+    "url": "https://resumebooster.work"
+  },
+  "description": "Resume Booster Job Board for Claude Code",
+  "version": "1.0.0",
+  "plugins": [
+    {
+      "name": "resumebooster",
+      "source": "./",
+      "description": "Job search over employers' own hiring systems. Search with no key; a free key opens every read tool.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Resume Booster"
+      },
+      "homepage": "https://resumebooster.work/agents",
+      "repository": "https://github.com/campbellaabbott-rgb/resumebooster-mcp",
+      "license": "MIT",
+      "keywords": [
+        "jobs",
+        "job-search",
+        "job-board",
+        "mcp",
+        "hiring",
+        "careers"
+      ],
+      "category": "productivity"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "resumebooster",
+  "version": "1.0.0",
+  "description": "Job search over employers' own hiring systems. Search with no key; a free key opens every read tool.",
+  "mcpServers": {
+    "resumebooster": {
+      "httpUrl": "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp",
+      "headers": {
+        "Authorization": "Bearer $RESUMEBOOSTER_KEY"
+      }
+    }
+  },
+  "settings": [
+    {
+      "name": "API key",
+      "description": "Optional. A free rb_live_ key from https://resumebooster.work/data-api opens every read tool; leave it empty and board_stats, search_jobs, search and fetch still answer.",
+      "envVar": "RESUMEBOOSTER_KEY",
+      "sensitive": true
+    }
+  ]
+}
