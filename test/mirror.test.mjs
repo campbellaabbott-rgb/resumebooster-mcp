@@ -495,6 +495,7 @@ test(
     // reported as pending rather than failed.
     const fnDir = join(siblingDir, "supabase", "functions", "agent-mcp");
     const serverSrc = ["index.ts", "oauth.ts"].map((n) => stripComments(readFileSync(join(fnDir, n), "utf8"))).join("\n");
+    assert.ok(serverSrc.includes(`name: "${C.serverInfoName}",`), "serverInfoName drifted from SERVER_INFO.name — the README's verify line would name a server that does not exist");
     const dot7 = existsSync(join(fnDir, "as-probe.ts"));
     const pending = [];
     for (const r of C.troubleshooting.filter((x) => x.flag === "server")) {
