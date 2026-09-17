@@ -12,6 +12,7 @@
   "repoOwner": "campbellaabbott-rgb",
   "repoName": "resumebooster-mcp",
   "repoUrl": "https://github.com/campbellaabbott-rgb/resumebooster-mcp",
+  "repoId": "1373802298",
   "authorName": "Resume Booster",
   "keyEnvVar": "RESUMEBOOSTER_KEY",
   "keyPrefix": "rb_live_",
@@ -26,24 +27,78 @@
     "at": "cd10f90b"
   },
   "tools": [
-    { "name": "search_jobs", "tier": "read" },
-    { "name": "get_job", "tier": "read" },
-    { "name": "get_jobs", "tier": "read" },
-    { "name": "check_jobs_open", "tier": "read" },
-    { "name": "check_apply_support", "tier": "read" },
-    { "name": "board_stats", "tier": "read" },
-    { "name": "employer_hiring_record", "tier": "read" },
-    { "name": "employer_growth", "tier": "read" },
-    { "name": "key_status", "tier": "read" },
-    { "name": "debug_search", "tier": "read" },
-    { "name": "search", "tier": "read" },
-    { "name": "fetch", "tier": "read" },
-    { "name": "fit_resume", "tier": "paid" },
-    { "name": "request_application", "tier": "apply" },
-    { "name": "application_status", "tier": "apply" }
+    {
+      "name": "search_jobs",
+      "tier": "read"
+    },
+    {
+      "name": "get_job",
+      "tier": "read"
+    },
+    {
+      "name": "get_jobs",
+      "tier": "read"
+    },
+    {
+      "name": "check_jobs_open",
+      "tier": "read"
+    },
+    {
+      "name": "check_apply_support",
+      "tier": "read"
+    },
+    {
+      "name": "board_stats",
+      "tier": "read"
+    },
+    {
+      "name": "employer_hiring_record",
+      "tier": "read"
+    },
+    {
+      "name": "employer_growth",
+      "tier": "read"
+    },
+    {
+      "name": "key_status",
+      "tier": "read"
+    },
+    {
+      "name": "debug_search",
+      "tier": "read"
+    },
+    {
+      "name": "search",
+      "tier": "read"
+    },
+    {
+      "name": "fetch",
+      "tier": "read"
+    },
+    {
+      "name": "fit_resume",
+      "tier": "paid"
+    },
+    {
+      "name": "request_application",
+      "tier": "apply"
+    },
+    {
+      "name": "application_status",
+      "tier": "apply"
+    }
   ],
-  "anonTools": ["board_stats", "search_jobs", "search", "fetch"],
-  "anonCaps": { "perAddressPerDay": 25, "globalPerDay": 2000, "searchRows": 10 },
+  "anonTools": [
+    "board_stats",
+    "search_jobs",
+    "search",
+    "fetch"
+  ],
+  "anonCaps": {
+    "perAddressPerDay": 25,
+    "globalPerDay": 2000,
+    "searchRows": 10
+  },
   "freeKeyDailyQuota": 1000,
   "anonAddressHashRetentionDays": 7
 }

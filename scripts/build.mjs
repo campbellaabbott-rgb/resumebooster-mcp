@@ -131,7 +131,9 @@ const serverJson = {
   description: C.description,
   version: C.version,
   websiteUrl: C.agentsPage,
-  repository: { url: C.repoUrl, source: "github" },
+  // The registry pins a server to its GitHub repository by numeric id (the
+  // name can be reassigned; the id cannot). gh api repos/<owner>/<name> --jq .id
+  repository: { url: C.repoUrl, source: "github", id: C.repoId },
   icons: [{ src: C.iconUrl, mimeType: "image/png", sizes: ["512x512"] }],
   remotes: [
     {
