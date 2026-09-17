@@ -7,9 +7,9 @@ description: Connect the Resume Booster Job Board MCP server with a free key. Us
 
 This plugin's `.mcp.json` registers `resumebooster` at `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp` and reads the key from `RESUMEBOOSTER_KEY` — unset, it sends no key. board_stats, search_jobs, search and fetch answer with no key at all, so a fresh connection works on its first call from any host. Everything else needs a free key.
 
-1. Tell the person to open https://resumebooster.work/data-api and mint a key (it starts with `rb_live_`). Do not ask them to paste it into the chat; ask them to put it in their shell environment:
+1. Tell the person to open https://resumebooster.work/data-api and get a key (it starts with `rb_live_`). Do not ask them to paste it into the chat; ask them to put it in their shell environment:
 
-       export RESUMEBOOSTER_KEY=rb_live_...your key...
+       export RESUMEBOOSTER_KEY=<paste your key here>
 
 2. Reconnect: the plugin's server reads `RESUMEBOOSTER_KEY` on its next start. If the server was added by hand without the header, register a keyed copy instead:
 
@@ -17,4 +17,4 @@ This plugin's `.mcp.json` registers `resumebooster` at `https://bwhdazbotpblihdx
 
 3. Run `/mcp` and reconnect, then call `key_status` — it answers the tier, the calls left today and whether the paid and apply tools would work, with any blocker named.
 
-Never write the key into `.mcp.json`, a URL, or a file that is committed. If `key_status` says the paid tools are closed, a pass or plan at https://resumebooster.work/agents/pass opens them; name the gate, never a price.
+Never write the key into `.mcp.json`, a URL, or a file that is committed. If a keyed tool answers that sign-in through the server is not switched on, this connection holds no key and no sign-in: say that `board_stats`, `search_jobs`, `search` and `fetch` still answer, point at https://resumebooster.work/data-api, and stop. If `key_status` says the paid tools are closed, a pass or plan at https://resumebooster.work/agents/pass opens them; name the gate, never a price.

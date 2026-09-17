@@ -1,5 +1,5 @@
 {
-  "$comment": "THE ONE CONSTANTS FILE. Every URL, name, tool, cap and quota in every other file of this repo is generated from here by scripts/build.mjs and pinned by test/mirror.test.mjs. Edit this file, run `npm run build`, commit the result. The tool list, the unkeyed tier and the caps are a MIRROR of resume-signal-pro/src/config/mcp-tools.ts (itself a mirror of supabase/functions/agent-mcp); re-sync `mirror` when that file changes.",
+  "$comment": "THE ONE CONSTANTS FILE. Every URL, name, tool, cap, quota, host step, troubleshooting row and doc citation in every other file of this repo is generated from here by scripts/build.mjs and pinned by test/mirror.test.mjs. Edit this file, run `npm run build`, commit the result. The tool list, the unkeyed tier, the caps, the host ids and the sign-in meta key are a MIRROR of resume-signal-pro/src/config/mcp-tools.ts (itself a mirror of supabase/functions/agent-mcp); re-sync `mirror` when that file changes. Step text carries {{placeholders}} the build fills from the constants — a number is never typed into a sentence.",
   "serverName": "resumebooster",
   "displayName": "Resume Booster Job Board",
   "mcpUrl": "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp",
@@ -22,9 +22,13 @@
   "registryDomain": "resumebooster.work",
   "version": "1.0.0",
   "description": "Job search over employers' own hiring systems. Search with no key; a free key opens every read tool.",
+  "serverInfoName": "resumebooster-job-board",
+  "signInMetaKey": "work.resumebooster/sign-in",
+  "authorizationServerMetadataUrl": "https://bwhdazbotpblihdxcmho.supabase.co/.well-known/oauth-authorization-server/auth/v1",
   "mirror": {
     "of": "resume-signal-pro/src/config/mcp-tools.ts",
-    "at": "cd10f90b"
+    "at": "6a43bd41",
+    "note": "hosts[].id order and signInMetaKey mirror the connect3 page lane's MCP_HOSTS/MCP_SIGN_IN_META_KEY; re-stamp `at` when that commit lands"
   },
   "tools": [
     {
@@ -100,5 +104,475 @@
     "searchRows": 10
   },
   "freeKeyDailyQuota": 1000,
-  "anonAddressHashRetentionDays": 7
+  "anonAddressHashRetentionDays": 7,
+  "hosts": [
+    {
+      "id": "claude",
+      "name": "Claude",
+      "also": "claude.ai, Claude Desktop, Claude on your phone",
+      "steps": [
+        "In Claude, open **Customize**, then **Connectors**.",
+        "Click **Add custom connector**.",
+        "If it asks for a **Name**, type `{{displayName}}`.",
+        "Paste this address into **MCP server URL**: `{{url}}` — this address is on Supabase, the company that hosts our server; it is ours. Paste it exactly as it is.",
+        "If Claude asks about **Authentication**, choose **Sign in when needed**. If it asks about **OAuth client**, choose **Register automatically**. Claude may already show these as \"Detected\" — leave them. Do not choose **No sign-in**: Claude cannot change that later, so the tools that need your account would stay off until you remove the connector and add it again.",
+        "Click **Add**.",
+        "In a chat, click **+**, open **Connectors**, and switch **{{displayName}}** on.",
+        "Ask Claude: `Using {{displayName}}, call board_stats and tell me how many jobs are open right now.`"
+      ],
+      "verify": "Under **+ → Connectors**, {{displayName}} is on. Ask \"call board_stats\": the answer names the number of open postings and a note like \"unkeyed: N of {{perAddressPerDay}} calls left today\".",
+      "signInOn": "the first time Claude needs your account — to open a posting in full, to check a shortlist, or to apply — a **Connect** card appears in the chat. Click it, sign in to {{displayName}}, press **Allow**, and Claude continues where it stopped."
+    },
+    {
+      "id": "chatgpt",
+      "name": "ChatGPT",
+      "also": "developer mode",
+      "steps": [
+        "In ChatGPT, open **Settings**, choose **Security and login**, and turn on **Developer mode**. If you do not see it, your account or workspace does not allow it yet.",
+        "Go to chatgpt.com/plugins and click the **+** button.",
+        "Type a name — `{{displayName}}` — and a description — `Live job board: search real openings from employers' own hiring systems.`",
+        "Under **Connection**, paste this address as the MCP server URL: `{{url}}`. Paste it exactly as it is — do not add `/mcp` at the end. The address is on Supabase, the company that hosts our server; it is ours.",
+        "Create the connection, and check the list of tools it found — there should be {{toolCount}}.",
+        "Start a new chat and add **{{displayName}}** from the tools menu.",
+        "Ask: `Search {{displayName}} for nurse jobs in Texas and show me the first ten.`"
+      ],
+      "verify": "Ask it to search for \"nurse in Texas\": {{searchRows}} results with ids come back. ChatGPT's own search uses `search` and `fetch` — {{searchRows}} results per search and the full text of any result — with no sign-in.",
+      "signInOn": "if a tool needs your account, ChatGPT shows its sign-in for {{displayName}}; sign in and press **Allow**."
+    },
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "steps": [
+        "Copy this line and run it in your terminal (`--scope user` makes it available in every folder, not just this one): `{{claudeCodeKeyless}}`",
+        "Start `claude` and type `/mcp` — `{{serverName}}` is listed as connected.",
+        "Ask: `call board_stats` — the answer names the number of open postings and says how many free calls are left today."
+      ],
+      "verify": "`/mcp` lists `{{serverName}}` as connected; \"call board_stats\" answers with the count and the unkeyed note; with a key, \"call key_status\" names your tier and calls left.",
+      "signInOn": "without a key, the first tool that needs your account makes `/mcp` show `! Needs authentication`; type `/mcp` and sign in in the browser (Claude Code 2.1.186 or newer can also run `claude mcp login {{serverName}}`)."
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "steps": [
+        "Paste this link into your browser's address bar (GitHub does not make it clickable) — Cursor opens and asks you to confirm the server; the link holds only the address, never a key: `{{cursorDeepLink}}`",
+        "Or paste the block below into `~/.cursor/mcp.json`.",
+        "In Cursor's chat, ask: `call board_stats`."
+      ],
+      "verify": "Ask the chat \"call board_stats\" — the count and the unkeyed note come back."
+    },
+    {
+      "id": "vscode",
+      "name": "VS Code",
+      "steps": [
+        "Paste this link into your browser's address bar — VS Code asks you to confirm: `{{vscodeLink}}` (Insiders: `{{vscodeInsidersLink}}`).",
+        "Or paste the block below into `.vscode/mcp.json`. When the server starts, VS Code asks for the key; press Enter to leave it empty and use the tools that need no key.",
+        "In the chat, ask: `call board_stats`."
+      ],
+      "verify": "When it prompts for the key, Enter leaves it empty; ask the chat \"call board_stats\"."
+    },
+    {
+      "id": "more",
+      "name": "Any other MCP client",
+      "steps": [
+        "POST one JSON-RPC 2.0 message per request to `{{url}}` (Streamable HTTP; no session to keep); the first one is the `initialize` message below.",
+        "Then ask your agent to call `board_stats`."
+      ],
+      "keyed": "With a key, send `Authorization: Bearer <key>` on each request; without one, {{anonToolsProse}} still answer.",
+      "verify": "The `initialize` answer's `serverInfo.name` is `{{serverInfoName}}`; the **Test the server** button on {{agentsPage}} runs this for you.",
+      "signInOn": "without a key, a tool that needs your account answers a sign-in challenge (HTTP 401); a client that supports sign-in opens it, and a client that does not needs a free key."
+    }
+  ],
+  "moreHosts": [
+    {
+      "id": "gemini-cli",
+      "name": "Gemini CLI",
+      "steps": [
+        "Run: `{{geminiAdd}}`",
+        "Ask: `call board_stats`."
+      ],
+      "verify": "\"call board_stats\" answers with the count and the unkeyed note.",
+      "signInOn": "`/mcp auth {{serverName}}` starts the sign-in."
+    },
+    {
+      "id": "codex-cli",
+      "name": "Codex CLI",
+      "steps": [
+        "Run: `{{codexAdd}}`",
+        "Ask: `call board_stats`."
+      ],
+      "verify": "\"call board_stats\" answers with the count and the unkeyed note.",
+      "signInOn": "`codex mcp login {{serverName}}` starts the sign-in."
+    },
+    {
+      "id": "cline",
+      "name": "Cline",
+      "steps": [
+        "In the **Remote Servers** tab: **Server Name** `{{serverName}}`, **Server URL** `{{url}}`, **Transport Type** **Streamable HTTP**, then **Add Server**. Or paste the block below into `~/.cline/mcp.json`.",
+        "Ask: `call board_stats`."
+      ],
+      "verify": "\"call board_stats\" answers with the count and the unkeyed note."
+    },
+    {
+      "id": "zed",
+      "name": "Zed",
+      "steps": [
+        "Paste the block below into `settings.json`.",
+        "Ask: `call board_stats`."
+      ],
+      "verify": "\"call board_stats\" answers with the count and the unkeyed note.",
+      "signInOn": "with no `Authorization` header set, Zed offers the server's sign-in itself."
+    },
+    {
+      "id": "windsurf",
+      "name": "Windsurf",
+      "steps": [
+        "Paste the block below into `~/.codeium/windsurf/mcp_config.json`.",
+        "Ask: `call board_stats`."
+      ],
+      "verify": "\"call board_stats\" answers with the count and the unkeyed note."
+    },
+    {
+      "id": "any-client",
+      "name": "Any client / curl",
+      "steps": [
+        "POST one JSON-RPC message per request to `{{url}}`; the first one is the `initialize` message (the block under \"Any other MCP client\" above).",
+        "With a key, send `Authorization: Bearer <key>` on each request."
+      ],
+      "verify": "The `initialize` answer's `serverInfo.name` is `{{serverInfoName}}`; the **Test the server** button on {{agentsPage}} runs this for you."
+    },
+    {
+      "id": "copy-the-prompt",
+      "name": "Copy the prompt",
+      "steps": [
+        "For an agent that can install a server from prose, paste this: `Add the MCP server \"{{serverName}}\" at {{url}} (Streamable HTTP, POST only, no key needed for {{anonToolsBare}}; a free key from {{keyPageUrl}} goes in an Authorization: Bearer header). Then call board_stats.`"
+      ],
+      "verify": "Your agent answers with the number of open postings and the unkeyed note."
+    }
+  ],
+  "troubleshooting": [
+    {
+      "symptom": "Sign-in through this server is not switched on yet, so this tool needs a key.",
+      "flag": "server",
+      "state": "off",
+      "why": "The tool needs your account, and sign-in from chat apps is not switched on today.",
+      "fix": "Search, board statistics and full postings still work with no key. To use every tool, connect from Claude Code, Cursor or VS Code with a free key ({{keyPage}})."
+    },
+    {
+      "symptom": "Claude: a **Connect** card appears",
+      "flag": "vendor",
+      "doc": "https://claude.com/docs/connectors/custom/remote-mcp",
+      "state": "on",
+      "why": "A tool needs your account.",
+      "fix": "Click it, sign in to {{displayName}}, press **Allow**; Claude retries the call itself."
+    },
+    {
+      "symptom": "Claude: \"Couldn't reach the MCP server\" or \"Authorization with the MCP server failed\"",
+      "flag": "vendor",
+      "doc": "https://claude.com/docs/connectors/building/troubleshooting",
+      "state": "any",
+      "why": "The address was mistyped, `/mcp` was added to it, or (when sign-in is on) the sign-in could not finish.",
+      "fix": "Check the address is exactly `{{url}}`; press **Test the server** on {{agentsPage}}; if the test says sign-in is on and the card still fails, remove the connector and add it again with **Sign in when needed** + **Register automatically**."
+    },
+    {
+      "symptom": "Claude Code: `/mcp` shows `! Needs authentication`",
+      "flag": "vendor",
+      "doc": "https://code.claude.com/docs/en/mcp",
+      "state": "on",
+      "why": "A tool that needs your account was called with no key, and the server asked for sign-in.",
+      "fix": "Type `/mcp` and follow the browser steps (2.1.186 or newer: `claude mcp login {{serverName}}`), or add a free key with `--header`."
+    },
+    {
+      "symptom": "The unkeyed allowance is spent",
+      "flag": "server",
+      "state": "any",
+      "why": "Your network address used its {{perAddressPerDay}} free calls today; an office or a chat service counts as one address.",
+      "fix": "Get a free key at {{keyPage}} ({{dailyQuota}} calls a day, no account) and add it to your app. Resets at midnight UTC."
+    },
+    {
+      "symptom": "That key is not recognised.",
+      "flag": "server",
+      "state": "any",
+      "why": "The key was cut off, or the header lacks `Bearer ` with the space.",
+      "fix": "The header must read `Authorization: Bearer {{keyPrefix}}…`. A key is shown once; get a new one if lost (the old one stops working)."
+    },
+    {
+      "symptom": "This key has been revoked.",
+      "flag": "server",
+      "state": "any",
+      "why": "A newer key was made for the same account or email; only the newest works.",
+      "fix": "Use the newest key, or make one more and update every app that holds the old one."
+    },
+    {
+      "symptom": "Daily quota of",
+      "flag": "server",
+      "state": "any",
+      "why": "The free key's day is spent.",
+      "fix": "Wait for midnight UTC; the unkeyed tools still answer; an Agent Pass raises the limit for its hours."
+    },
+    {
+      "symptom": "requests/minute.",
+      "flag": "server",
+      "state": "any",
+      "why": "Too many calls in one minute.",
+      "fix": "Wait one minute."
+    },
+    {
+      "symptom": "fit_resume is a paid feature",
+      "flag": "server",
+      "state": "any",
+      "why": "Résumé fit scoring needs a paid key or a live Agent Pass.",
+      "fix": "{{keyPage}} for a paid key, or {{passPage}} — search keeps working."
+    },
+    {
+      "symptom": "The apply agent needs an active Agent plan or a live pass.",
+      "flag": "server",
+      "state": "any",
+      "why": "Applying is paid.",
+      "fix": "{{passPage}} (sign in first), or the Agent plan on the site."
+    },
+    {
+      "symptom": "No agent mandate on this account.",
+      "flag": "server",
+      "state": "any",
+      "why": "The apply agent is not set up yet (the same answer names \"Your agent is switched off.\" and \"No resume on file\" when that is the blocker).",
+      "fix": "Account → set up the apply agent: turn it on, choose countries and field, add the CV. The off switch always wins."
+    },
+    {
+      "symptom": "The pass on this account is not live.",
+      "flag": "server",
+      "state": "any",
+      "why": "The pass ended, or its applications are used (\"No applications left on this pass.\").",
+      "fix": "Search keeps working; buy another pass when the clock ends."
+    },
+    {
+      "symptom": "That is not a job id from this board.",
+      "flag": "server",
+      "state": "any",
+      "why": "You passed a link or a title.",
+      "fix": "Use the id from a search, e.g. `greenhouse:acme:12345`; the id in a `{{jobsPage}}?job=<id>` link is the same one."
+    },
+    {
+      "symptom": "This is an MCP server for AI agents, not a web page",
+      "flag": "server",
+      "state": "any",
+      "why": "You opened the address like a web page.",
+      "fix": "Nothing is wrong. Paste it into your agent; the how-to is {{agentsPage}}."
+    },
+    {
+      "symptom": "Cursor / VS Code / Cline: server listed, zero tools",
+      "flag": "vendor",
+      "doc": "https://docs.cline.bot/mcp/configuring-mcp-servers",
+      "state": "any",
+      "why": "Wrong transport (Cline: not `sse`; VS Code: `\"type\": \"http\"`), or `/mcp` appended to the address.",
+      "fix": "The address ends in `/agent-mcp` exactly; the transport is HTTP (Cline: **Streamable HTTP**)."
+    },
+    {
+      "symptom": "ChatGPT only ever searches and fetches",
+      "flag": "vendor",
+      "doc": "https://developers.openai.com/apps-sdk/build/auth",
+      "state": "any",
+      "why": "By design: ChatGPT's search calls `search` and `fetch`, {{searchRows}} results a page.",
+      "fix": "For filters (pay, remote, seniority), use an app that calls `search_jobs`."
+    },
+    {
+      "symptom": "Sign in to use this tool",
+      "flag": "server",
+      "state": "on",
+      "why": "A tool that needs a key was called with none (HTTP 401 from a script or curl).",
+      "fix": "Send `Authorization: Bearer <key>` (free at {{keyPage}}), or call one of {{anonToolsProse}}."
+    }
+  ],
+  "docsSnapshot": [
+    {
+      "url": "https://claude.com/docs/connectors/custom/remote-mcp",
+      "fetched": "2026-09-16",
+      "block": "claude",
+      "sentences": [
+        "Navigate to **Customize > Connectors**",
+        "Click \"Add custom connector\"",
+        "**Name**: the display name shown in the connectors list.",
+        "**MCP server URL**: the HTTPS address where the server accepts MCP requests",
+        "**Sign in when needed**: Claude connects without credentials and prompts users to sign in when the server asks.",
+        "**No sign-in**: anyone with access to the server URL can use the connector.",
+        "**Register automatically**: Claude registers OAuth clients with the server as users connect (Dynamic Client Registration).",
+        "**Use Claude's published identity** (recommended): the server reads Claude's client details from a URL Anthropic hosts (Client ID Metadata Document). Nothing to set up; the server must support it.",
+        "After you continue, Claude checks the URL and pre-fills the authentication settings it detects, marked \"Detected.\"",
+        "Use the \"+\" button in your chat interface to access \"Connectors,\" where you can enable/disable connectors per conversation.",
+        "Authentication settings (OAuth credentials and request headers) can't be changed after a connector is added. To change them, remove the connector and add it again with the new details.",
+        "The two-step dialog described here is rolling out gradually.",
+        "Request header authentication is in beta and available to a limited set of organizations.",
+        "Most servers that use bearer tokens reject the second form."
+      ]
+    },
+    {
+      "url": "https://claude.com/docs/connectors/building/troubleshooting",
+      "fetched": "2026-09-16",
+      "block": "troubleshooting",
+      "sentences": [
+        "If your registered MCP URL returns a 301/302/307/308 redirect to a different host … the Authorization header is dropped on the redirect … and the connection fails with 'Authorization with the MCP server failed'"
+      ]
+    },
+    {
+      "url": "https://developers.openai.com/apps-sdk/deploy/connect-chatgpt",
+      "fetched": "2026-09-16",
+      "block": "chatgpt",
+      "sentences": [
+        "Open **Settings**.",
+        "Select **Security and login**.",
+        "Turn on **Developer mode**.",
+        "Go to ChatGPT Plugins.",
+        "Select the plus button.",
+        "Enter a user-facing name and description.",
+        "Under **Connection**, choose the connection method: For a public endpoint, enter the MCP server URL, including the `/mcp` path.",
+        "Create the connection.",
+        "Review the tools and metadata discovered from the server.",
+        "Start a new conversation and add the MCP connection from the tools menu."
+      ],
+      "absent": [
+        "Mixed",
+        "Work",
+        "@"
+      ]
+    },
+    {
+      "url": "https://developers.openai.com/apps-sdk/build/auth",
+      "fetched": "2026-09-16",
+      "block": "chatgpt",
+      "sentences": [
+        "Declaring both `noauth` and `oauth2` tells ChatGPT it can start with anonymous calls but that linking unlocks privileged behavior.",
+        "Triggering the tool-level OAuth flow requires both metadata (`securitySchemes` and the resource metadata document) **and** runtime errors that carry `_meta[\"mcp/www_authenticate\"]`. Without both halves ChatGPT will not show the linking UI for that tool.",
+        "ChatGPT does **not** support machine-to-machine OAuth grants such as client credentials, service accounts, or JWT bearer assertions, nor can it present custom API keys or customer-provided mTLS certificates."
+      ]
+    },
+    {
+      "url": "https://code.claude.com/docs/en/mcp",
+      "fetched": "2026-09-16",
+      "block": "claude-code",
+      "sentences": [
+        "claude mcp add --transport http secure-api https://api.example.com/mcp --header \"Authorization: Bearer your-token\"",
+        "User: Available to you across all projects, stored in ~/.claude.json",
+        "In Claude Code, use the command: /mcp Then follow the steps in your browser to log in.",
+        "From v2.1.186, `claude mcp login <name>` runs a configured server's OAuth flow directly from your shell, so you don't need to open the `/mcp` panel inside a session.",
+        "Claude Code marks a remote server as needing authentication when the server responds with `401 Unauthorized` or `403 Forbidden`.",
+        "! Needs authentication",
+        "In a remote server's `url` and `headers`, Claude Code reads credential variables from your environment as empty rather than expanding them."
+      ]
+    },
+    {
+      "url": "https://cursor.com/docs/context/mcp/install-links",
+      "fetched": "2026-09-16",
+      "block": "cursor",
+      "sentences": [
+        "cursor://anysphere.cursor-deeplink/mcp/install?name=$NAME&config=$BASE64_ENCODED_CONFIG",
+        "JSON.stringify the configuration then base64 encode it",
+        "It uses the same format as mcp.json with a name and transport configuration."
+      ],
+      "absent": [
+        "cursor.com/install-mcp"
+      ]
+    },
+    {
+      "url": "https://cursor.com/docs/context/mcp",
+      "fetched": "2026-09-16",
+      "block": "cursor",
+      "sentences": [
+        "Create `~/.cursor/mcp.json` in your home directory for tools available everywhere.",
+        "Cursor resolves variables in these fields: `command`, `args`, `env`, `url`, and `headers`."
+      ]
+    },
+    {
+      "url": "https://code.visualstudio.com/docs/agents/reference/mcp-configuration",
+      "fetched": "2026-09-16",
+      "block": "vscode",
+      "sentences": [
+        "\"type\": \"http\"",
+        "promptString: opens an input box to ask the user for a free-text value.",
+        "\"${input:variable-id}\"",
+        "MCP: List Servers"
+      ]
+    },
+    {
+      "url": "https://code.visualstudio.com/api/extension-guides/ai/mcp",
+      "fetched": "2026-09-16",
+      "block": "vscode",
+      "sentences": [
+        "vscode:mcp/install?{json-configuration}",
+        "vscode-insiders:mcp/install?{json-configuration}",
+        "perform a JSON-stringify and URL encode on it"
+      ],
+      "absent": [
+        "insiders.vscode.dev/redirect"
+      ]
+    },
+    {
+      "url": "https://geminicli.com/docs/tools/mcp-server/",
+      "fetched": "2026-09-16",
+      "block": "gemini",
+      "sentences": [
+        "gemini mcp add --transport http <name> <url>",
+        "-s, --scope: Configuration scope (user or project). [default: 'project']",
+        "-H, --header",
+        "Use the `/mcp auth` command to manage OAuth authentication",
+        "Initial connection attempt fails with 401 Unauthorized"
+      ]
+    },
+    {
+      "url": "https://learn.chatgpt.com/docs/extend/mcp?surface=cli",
+      "fetched": "2026-09-16",
+      "block": "codex",
+      "sentences": [
+        "codex mcp add <server-name> --url <url>",
+        "~/.codex/config.toml",
+        "[mcp_servers.<name>]",
+        "bearer_token_env_var",
+        "codex mcp login <server-name>",
+        "If the authorization flow fails, Codex can connect to the server without authentication"
+      ]
+    },
+    {
+      "url": "https://docs.cline.bot/mcp/configuring-mcp-servers",
+      "fetched": "2026-09-16",
+      "block": "cline",
+      "sentences": [
+        "Enter **Server Name** (any unique label)",
+        "Enter **Server URL** (full endpoint URL)",
+        "Choose **Transport Type**: **Streamable HTTP** (recommended)",
+        "Click **Add Server**",
+        "set `\"type\": \"streamableHttp\"` explicitly for the recommended transport",
+        "~/.cline/mcp.json"
+      ],
+      "absent": [
+        "cline_mcp_settings.json",
+        "llms-install.md"
+      ]
+    },
+    {
+      "url": "https://zed.dev/docs/ai/mcp",
+      "fetched": "2026-09-16",
+      "block": "zed",
+      "sentences": [
+        "When a remote MCP server has no configured \"Authorization\" header, Zed will prompt you to authenticate yourself against the MCP server using the standard MCP OAuth flow.",
+        "context_servers"
+      ]
+    },
+    {
+      "url": "https://docs.devin.ai/desktop/cascade/mcp",
+      "fetched": "2026-09-16",
+      "block": "windsurf",
+      "sentences": [
+        "docs.windsurf.com/windsurf/cascade/mcp answers 307 to this URL",
+        "\"serverUrl\": \"<your-server-url>/mcp\"",
+        "~/.codeium/windsurf/mcp_config.json"
+      ]
+    },
+    {
+      "url": "https://supabase.com/docs/guides/auth/oauth-server/mcp-authentication",
+      "fetched": "2026-09-16",
+      "block": "sign-in",
+      "sentences": [
+        "MCP clients will automatically discover your OAuth configuration from: https://<project-ref>.supabase.co/.well-known/oauth-authorization-server/auth/v1",
+        "Enable this in **Authentication** > **OAuth Server** in your Supabase dashboard to allow MCP clients to register themselves automatically without manual intervention"
+      ]
+    }
+  ]
 }

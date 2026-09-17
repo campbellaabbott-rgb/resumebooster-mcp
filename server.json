@@ -26,7 +26,7 @@
       "headers": [
         {
           "name": "Authorization",
-          "description": "Optional. Bearer rb_live_... from https://resumebooster.work/data-api (free). Without it board_stats, search_jobs, search and fetch still answer.",
+          "description": "Optional. A free rb_live_ key from https://resumebooster.work/data-api, sent as Bearer <key>. Without it board_stats, search_jobs, search and fetch still answer.",
           "isRequired": false,
           "isSecret": true
         }

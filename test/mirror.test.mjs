@@ -115,19 +115,36 @@ test("the README's links, count and tool names come from the constants", () => {
   const readme = readText("README.md");
   const b64 = Buffer.from(JSON.stringify({ url: C.mcpUrl })).toString("base64");
   assert.ok(readme.includes(`cursor://anysphere.cursor-deeplink/mcp/install?name=${C.serverName}&config=${b64}`), "cursor deep link");
-  assert.ok(readme.includes(`https://cursor.com/install-mcp?name=${C.serverName}&config=${encodeURIComponent(b64)}`), "cursor web link");
-  assert.equal(JSON.parse(Buffer.from(b64, "base64").toString()).url, C.mcpUrl, "the deep link's config holds only the URL");
+  // The web form (cursor.com/install-mcp) and the badge are not on Cursor's
+  // install-links page (docs-snapshot.md), so the README carries neither.
+  assert.ok(!readme.includes("cursor.com/install-mcp"), "an undocumented cursor web link");
+  assert.ok(!readme.includes("cursor.com/deeplink/mcp-install"), "an undocumented cursor badge");
+  assert.ok(!readme.includes("registry.modelcontextprotocol.io"), "a registry badge over an unpublished entry is a claim");
+  assert.deepEqual(JSON.parse(Buffer.from(b64, "base64").toString()), { url: C.mcpUrl }, "the deep link's config holds only the URL");
   const vscode = `vscode:mcp/install?${encodeURIComponent(JSON.stringify({ name: C.serverName, type: "http", url: C.mcpUrl }))}`;
   assert.ok(readme.includes(vscode), "vscode link");
   assert.ok(readme.includes(`https://insiders.vscode.dev/redirect?url=${encodeURIComponent(vscode)}`), "vscode badge");
   assert.ok(readme.includes(`Tools: ${C.tools.length} —`), "the count is the list's length");
   for (const t of C.tools) assert.ok(readme.includes(`\`${t.name}\``), `README names ${t.name}`);
   for (const a of C.anonTools) assert.ok(readme.includes(a), `README names unkeyed ${a}`);
-  assert.ok(readme.includes(`${C.anonCaps.perAddressPerDay} calls a day per address`));
+  assert.ok(readme.includes(`${C.anonCaps.perAddressPerDay} calls a day per network address`), "the cap names the network address, never a bare 'address'");
+  assert.ok(!/calls a day per address\b/.test(readme), "'per address' is undefined for a reader");
+  assert.ok(readme.includes(`${C.anonCaps.perAddressPerDay} free calls a day per network address`), "the address gloss");
   assert.ok(readme.includes(`${C.freeKeyDailyQuota} calls a day`));
   assert.ok(readme.includes(`/plugin marketplace add ${C.repoOwner}/${C.repoName}`));
   assert.ok(readme.includes(`gemini extensions install ${C.repoUrl}`));
   assert.ok(readme.includes(`bearer_token_env_var = "${C.keyEnvVar}"`));
+  assert.ok(readme.includes(`codex mcp add ${C.serverName} --url ${C.mcpUrl}`), "codex add is the documented CLI form");
+  assert.ok(readme.includes(`"Authorization": "Bearer \${env:${C.keyEnvVar}}"`), "cursor's keyed block names the variable Cursor resolves");
+  assert.ok(readme.includes(`~/.cline/mcp.json`), "cline's documented file");
+  assert.ok(readme.includes("**Remote Servers** tab"), "cline's documented tab");
+  assert.ok(readme.includes("~/.codeium/windsurf/mcp_config.json"), "windsurf's documented file");
+  assert.ok(readme.includes("2.1.186 or newer"), "claude mcp login carries its version caveat");
+  assert.ok(readme.includes(`claude mcp login ${C.serverName}`));
+  for (const m of readme.matchAll(/claude mcp add [^\n`]*/g)) assert.ok(m[0].includes("--scope user"), `${m[0]} lacks --scope user`);
+  assert.ok(readme.indexOf("**Verify:**") < readme.indexOf("## Tiers"), "the verify line sits under the title, before the tiers");
+  assert.ok(readme.includes("## If it does not work"));
+  for (const r of C.troubleshooting) assert.ok(readme.includes(r.symptom.replace(/\{\{\w+\}\}/g, "").slice(0, 30)), `README lacks the row ${r.symptom}`);
   assert.ok(readme.includes(`"serverUrl": "${C.mcpUrl}"`), "windsurf block");
   assert.ok(readme.includes(`"type": "streamableHttp"`), "cline block");
   assert.ok(readme.includes(`"context_servers"`), "zed block");
@@ -141,14 +158,15 @@ test("the README's links, count and tool names come from the constants", () => {
 test("every generated markdown file spells no count, no price and no takedown-as-hire (project_claim_drift)", async () => {
   const { GENERATED } = await import("../scripts/build.mjs");
   const md = GENERATED.filter((f) => f.endsWith(".md"));
-  assert.ok(md.length >= 4, `expected the README, llms-install, SETUP and the skills: ${md.join(",")}`);
+  assert.ok(md.length >= 4, `expected the README, llms-install, docs-snapshot and the skills: ${md.join(",")}`);
+  assert.ok(!md.includes("SETUP.md") && !existsSync(join(ROOT, "SETUP.md")), "SETUP.md was a hand copy of the setup skill — it stays deleted");
   // A spelled count beside a noun the constants own (tools, tier members,
   // calls, rows, ids) — "the first four", "15 tools" — must be derived, so
   // the only digits allowed beside those nouns are the constants' values.
   // "one" is an article ("one page of", "one call") and is not judged.
   const spelledCount = /\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty)\b(?=[^.\n]{0,40}\b(?:tools?|need no key|calls?|rows?|ids?)\b)/i;
   const allowedDigits = new Set([C.tools.length, C.anonTools.length, C.anonCaps.perAddressPerDay, C.anonCaps.globalPerDay, C.anonCaps.searchRows, C.freeKeyDailyQuota, C.anonAddressHashRetentionDays].map(String));
-  for (const f of md) {
+  for (const f of md.filter((x) => x !== "docs-snapshot.md")) {
     const text = readText(f);
     assert.ok(!spelledCount.test(text), `${f} spells a count in words: ${spelledCount.exec(text)?.[0]}`);
     for (const m of text.matchAll(/\b(\d+)\s+(?:tools?|calls|rows|ids|days)\b/g)) {
@@ -260,6 +278,138 @@ test("the schema check bites: a marketplace missing owner, a plugin with no name
 });
 
 // ---------------------------------------------------------------------------
+// connect3 (2026-09-16): the published instructions are keyless-first, carry
+// no placeholder inside an Authorization value, quote only labels a vendor
+// doc prints, state the sign-in RULE (never today's state) beside the curl
+// that reads the state, and mirror the site's host ids and sign-in key.
+
+const PUBLISHED = () => ["README.md", "llms-install.md", "skills/setup/SKILL.md", "skills/find-jobs/SKILL.md"];
+const fenced = (text) => [...text.matchAll(/```(\w*)\n([\s\S]*?)```/g)].map((m) => ({ lang: m[1], body: m[2] }));
+
+test("no generated file carries a placeholder inside an Authorization value, in a fence or in prose", async () => {
+  const { GENERATED } = await import("../scripts/build.mjs");
+  // docs-snapshot.md quotes vendors' own example lines verbatim (a doc's
+  // `Bearer your-token` is the vendor's placeholder, not ours) — it is a
+  // quotation, not an instruction, and is judged by the snapshot test instead.
+  for (const f of GENERATED.filter((x) => x !== "docs-snapshot.md")) {
+    const text = readText(f);
+    // A value that pretends to be a key: the old `rb_live_...your key...`,
+    // a vendor's `your-token`, or anything after `Bearer ` that is not a
+    // documented indirection ($VAR, ${VAR:-}, ${env:VAR}, ${input:id}) or the
+    // prose forms `<key>` / `…`.
+    for (const m of text.matchAll(/Bearer ([^"'`\s]+)/g)) {
+      const v = m[1].replace(/[.,;)]+$/, "");
+      // Allowed: a documented indirection ($VAR, ${…}), the prose forms
+      // `<key>` / `…` / `rb_live_…`, or the word "header" in a sentence.
+      assert.ok(/^\$/.test(v) || ["<key>", "…", `${C.keyPrefix}…`, "header"].includes(v), `${f}: Authorization value "${v}" is a placeholder, not an indirection`);
+    }
+    assert.ok(!/your key\.\.\.|your-token|\.\.\.your/.test(text), `${f} carries a key placeholder`);
+    for (const { lang, body } of fenced(text)) {
+      if (lang !== "json") continue;
+      const parsed = JSON.parse(body);
+      const walk = (o) => {
+        if (o && typeof o === "object") for (const [k, v] of Object.entries(o)) k === "Authorization" ? assert.match(v, /^Bearer \$/, `${f}: ${v}`) : walk(v);
+      };
+      walk(parsed);
+    }
+  }
+});
+
+test("every block is keyless first: the first fenced block or step under each host names no Authorization header", () => {
+  const readme = readText("README.md");
+  for (const h of [...C.hosts, ...C.moreHosts]) {
+    const start = readme.indexOf(`## ${h.name}`);
+    assert.ok(start > 0, `README lacks a section for ${h.name}`);
+    const next = readme.search(new RegExp(`\\n#{3,4} (?!More apps)`.replace("\\\\n", "\\n")));
+    const rest = readme.slice(start + 1);
+    const nextRel = rest.search(/\n#{3,4} /);
+    const section = nextRel > 0 ? readme.slice(start, start + 1 + nextRel) : readme.slice(start, readme.indexOf("\n## If it does not work"));
+    const firstBlock = fenced(section)[0];
+    if (firstBlock && firstBlock.lang !== "sh") assert.ok(!/Authorization/.test(firstBlock.body) || /\$\{input:/.test(firstBlock.body), `${h.name}: the first block is keyed`);
+    if (h.id === "copy-the-prompt") continue;
+    const firstStep = section.split("\n").find((l) => /^1\. /.test(l)) ?? "";
+    assert.ok(firstStep.length > 0, `${h.name}: no numbered step`);
+    assert.ok(!/--header|Authorization/.test(firstStep), `${h.name}: step 1 needs a key`);
+    assert.ok(section.includes("**How you know it worked:**"), `${h.name}: no verify line`);
+  }
+});
+
+test("the hosts are in the owner's order (six, then the long tail), ids unique, every step's placeholders resolve", async () => {
+  assert.deepEqual(C.hosts.map((h) => h.id), ["claude", "chatgpt", "claude-code", "cursor", "vscode", "more"]);
+  assert.deepEqual(C.moreHosts.map((h) => h.id), ["gemini-cli", "codex-cli", "cline", "zed", "windsurf", "any-client", "copy-the-prompt"]);
+  const { fill } = await import("../scripts/build.mjs");
+  for (const h of [...C.hosts, ...C.moreHosts]) {
+    assert.ok(h.steps.length >= 1 && h.steps.every((s) => s.length > 10), `${h.id}: steps`);
+    for (const t of [...h.steps, h.verify, h.signInOn ?? "", h.keyed ?? ""]) fill(t);
+    assert.ok(!/\b\d+ (?:tools|calls|rows|results)\b/.test([...h.steps, h.verify].join(" ")), `${h.id}: a typed number in a step`);
+    // The first step names no jargon a newcomer has not been given.
+    // A vendor's own bold label (**Streamable HTTP** is Cline's transport
+    // name) is quoted, not explained; the jargon rule reads the prose.
+    if (!["more", "any-client", "copy-the-prompt"].includes(h.id)) assert.ok(!/401|WWW-Authenticate|bearer|Streamable|stateless|PRM|metadata/i.test(h.steps[0].replace(/\*\*[^*]+\*\*/g, "")), `${h.id}: jargon in step 1`);
+  }
+  assert.throws(() => fill("{{noSuchThing}}"), /unknown placeholder/);
+});
+
+test("no forbidden label in the published instructions (labels no vendor doc prints today)", () => {
+  for (const f of PUBLISHED()) {
+    const text = readText(f);
+    for (const bad of [/\bMixed\b/, /Work tab/i, /published identity/i, /cline_mcp_settings\.json/, /No Authentication/, /switch the tab to/i, /green dot/i]) {
+      assert.ok(!bad.test(text), `${f} says ${bad}`);
+    }
+  }
+});
+
+test("every troubleshooting row is the server's string or cites a doc in the snapshot, and its symptom is rendered", () => {
+  const snapshotUrls = new Set(C.docsSnapshot.map((d) => d.url));
+  for (const r of C.troubleshooting) {
+    assert.ok(["server", "vendor"].includes(r.flag), r.symptom);
+    assert.ok(["off", "on", "any"].includes(r.state), r.symptom);
+    if (r.flag === "vendor") assert.ok(snapshotUrls.has(r.doc), `${r.symptom}: cites ${r.doc}, which is not in docsSnapshot`);
+    else assert.equal(r.doc, undefined, `${r.symptom}: a server string cites no doc`);
+  }
+  assert.ok(C.troubleshooting.some((r) => r.state === "off"), "the off-state row exists");
+  for (const d of C.docsSnapshot) {
+    assert.match(d.fetched, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(d.sentences.length > 0, d.url);
+  }
+  const snap = readText("docs-snapshot.md");
+  for (const d of C.docsSnapshot) assert.ok(snap.includes(`## ${d.url}`), `docs-snapshot lacks ${d.url}`);
+});
+
+test("the sign-in paragraph states the rule and the reader, never today's state", () => {
+  for (const f of ["README.md", "llms-install.md"]) {
+    const text = readText(f);
+    assert.ok(text.includes(`.result._meta["${C.signInMetaKey}"].state`), `${f}: the curl reader names the meta key`);
+    assert.ok(text.includes(C.authorizationServerMetadataUrl), `${f}: names the metadata the server probes`);
+    assert.ok(text.includes("only while the server's sign-in service is switched on"), `${f}: the rule`);
+    // A state word about sign-in is allowed only inside a conditional clause.
+    for (const m of text.matchAll(/sign-in[^.|\n]{0,30}?\bis (?:on|off)\b/g)) {
+      const before = text.slice(Math.max(0, m.index - 60), m.index + m[0].length);
+      assert.match(before, /\b(?:when|while|if|says|marked)\b/i, `${f}: states the sign-in state as a fact: "${m[0]}"`);
+    }
+    assert.ok(!/Connect card that signs you in|shows a Connect card\./.test(text), `${f}: promises the card unconditionally`);
+  }
+  assert.equal(C.authorizationServerMetadataUrl, `${new URL(C.mcpUrl).origin}/.well-known/oauth-authorization-server/auth/v1`, "the AS metadata URL is the RFC 8414 form on the server's own origin");
+});
+
+test("teeth: a placeholder pasted into a keyed block, and a hand-typed 'Mixed', are reported", async () => {
+  const dir = scratch();
+  try {
+    const readme = readText("README.md", dir);
+    writeFileSync(join(dir, "README.md"), readme.replace(`"Bearer \${env:${C.keyEnvVar}}"`, `"Bearer ${C.keyPrefix}...your key..."`).replace("## Tiers", "Choose **Mixed** so search answers.\n\n## Tiers"));
+    const mutated = readFileSync(join(dir, "README.md"), "utf8");
+    assert.ok(mutated !== readme);
+    const bad = [...mutated.matchAll(/Bearer ([^"'`\s]+)/g)].map((m) => m[1]).filter((v) => !/^\$/.test(v) && v !== "<key>" && v !== "…");
+    assert.ok(bad.length >= 1, "the placeholder must be found");
+    assert.match(mutated, /\bMixed\b/);
+    const r = run("build.mjs", { BUILD_ROOT: dir }, dir);
+    assert.equal(r.status, 1, "a hand edit is drift");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // The cross-runtime mirror. Comments are stripped before any regex runs so a
 // name written in prose can neither satisfy nor fail the check.
 // Block comments, whole-line comments AND trailing comments go (a `//` not
@@ -318,6 +468,42 @@ test(
     const prune = sql.match(/DELETE FROM public\.mcp_anon_rate r WHERE r\.day < v_today - (\d+);/);
     assert.ok(prune, "mcp_anon_check's prune statement not found — RE-ANCHOR");
     assert.equal(C.anonAddressHashRetentionDays, Number(prune[1]), "the README's retention drifted from mcp_anon_check's prune");
+
+    // connect3: the host ids and the sign-in meta key mirror the page lane's
+    // MCP_HOSTS[].id / MCP_SIGN_IN_META_KEY. Until that commit lands on the
+    // site, the file has neither identifier; the check then reports the
+    // gap instead of skipping silently, and bites the moment the identifiers
+    // exist. (Not an exemption list: nothing here is turned off by name.)
+    const metaKey = ts.match(/MCP_SIGN_IN_META_KEY\s*=\s*"([^"]+)"/);
+    const idsOf = (name) => {
+      const block = ts.match(new RegExp(`export const ${name}[^=]*=\\s*\\[([\\s\\S]*?)\\n\\];`));
+      return block ? [...block[1].matchAll(/^\s{4}id:\s*"([^"]+)"/gm)].map((m) => m[1]) : [];
+    };
+    const siteHostIds = idsOf("MCP_HOSTS");
+    const siteMoreIds = idsOf("MCP_MORE_HOSTS");
+    if (metaKey || siteHostIds.length) {
+      assert.ok(metaKey, "the site declares host ids but no MCP_SIGN_IN_META_KEY");
+      assert.equal(C.signInMetaKey, metaKey[1], "signInMetaKey drifted from the site's MCP_SIGN_IN_META_KEY");
+      assert.deepEqual(C.hosts.map((h) => h.id), siteHostIds, "host ids or order drifted from the site's MCP_HOSTS — re-sync mcp.config.json, re-stamp mirror.at, rebuild");
+      assert.deepEqual(C.moreHosts.map((h) => h.id), siteMoreIds, "the long tail drifted from the site's MCP_MORE_HOSTS");
+    } else {
+      console.log(`  note: ${mirrorFile} predates connect3 (no MCP_SIGN_IN_META_KEY, no MCP_HOSTS ids) — host-id and meta-key mirror not yet enforceable; mirror.at=${C.mirror.at}`);
+    }
+    // Server strings the troubleshooting rows quote: each `server` symptom
+    // occurs in the comment-stripped Deno source once agent-mcp .7 (the
+    // as-probe module) is in the sibling; before that, the .7-only rows are
+    // reported as pending rather than failed.
+    const fnDir = join(siblingDir, "supabase", "functions", "agent-mcp");
+    const serverSrc = ["index.ts", "oauth.ts"].map((n) => stripComments(readFileSync(join(fnDir, n), "utf8"))).join("\n");
+    const dot7 = existsSync(join(fnDir, "as-probe.ts"));
+    const pending = [];
+    for (const r of C.troubleshooting.filter((x) => x.flag === "server")) {
+      const found = serverSrc.includes(r.symptom);
+      if (found) continue;
+      if (!dot7) pending.push(r.symptom);
+      else assert.fail(`troubleshooting symptom not in the server source: "${r.symptom}"`);
+    }
+    if (pending.length) console.log(`  note: ${pending.length} row(s) quote agent-mcp .7 strings not yet in the sibling: ${pending.map((x) => JSON.stringify(x)).join(", ")}`);
 
     const env = join(siblingDir, ".env");
     if (existsSync(env)) {

@@ -3,56 +3,47 @@
 
 You are configuring a REMOTE MCP server. There is nothing to download, build or run locally.
 
-- Transport: Streamable HTTP
-- URL: https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp
+- Transport: Streamable HTTP (one POST per JSON-RPC message, no session to keep)
+- URL: https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp — paste it exactly; do not append `/mcp`
 - Server name to register: resumebooster
-- Optional credential: an environment variable `RESUMEBOOSTER_KEY` holding a `rb_live_...` key. Never write a key into a config file, a URL or a log; if the person has none, register the server with no header — board_stats, search_jobs, search and fetch answer unkeyed.
+- Optional credential: an environment variable `RESUMEBOOSTER_KEY` holding a `rb_live_...` key. A key belongs in the host's own secret store, its prompt, or its user-level config file (the blocks below name each); never in a committed file, a URL, a badge, a base64 config or a log. If the person has none, register the server with no header — board_stats, search_jobs, search and fetch answer unkeyed.
 
 ## Steps
 
 1. Ask the person which host they use, or detect it from the config file present.
-2. Write the block for that host (below). Substitute nothing except the key placeholder, and only when the person hands you a key.
+2. Write the KEYLESS block for that host (below). Add the keyed form only when the person hands you a key, and only through the host's own indirection (an env var, `${env:RESUMEBOOSTER_KEY}`, `${input:…}`, `bearer_token_env_var`) — never paste the key into a value.
 3. Restart or reconnect the host's MCP servers (Claude Code: `/mcp`; Cursor: reload MCP settings; Cline: the MCP panel's restart).
-4. Verify with one unkeyed call: `board_stats` takes no arguments and answers with no key. With a key, `key_status` answers what the key may do.
+4. Verify with one unkeyed call: `board_stats` takes no arguments and answers with no key, and its answer says how many unkeyed calls are left today. With a key, `key_status` answers what the key may do.
+
+## Sign-in from chat apps (a rule, not today's state)
+
+Claude, Claude Desktop and ChatGPT have no field for a key. They sign you in instead — but only while the server's sign-in service is switched on. When it is off, a tool that needs your account answers in words (no Connect card), and `board_stats`, `search_jobs`, `search` and `fetch` still answer. Today's state: press **Test the server** on https://resumebooster.work/agents, or run
+
+    curl -s -X POST https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp -H 'content-type: application/json' -H 'mcp-protocol-version: 2025-06-18' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}' | jq '.result._meta["work.resumebooster/sign-in"].state'
+
+which prints `"on"`, `"off"` or `"unknown"` — the same word the page shows (the server reads the sign-in service's own metadata at `https://bwhdazbotpblihdxcmho.supabase.co/.well-known/oauth-authorization-server/auth/v1` and caches the answer briefly).
 
 ## Blocks
 
 Claude Code:
 
-    claude mcp add --transport http resumebooster https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp
+    claude mcp add --transport http --scope user resumebooster https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp
 
 Claude Code with a key in the environment:
 
     claude mcp add --transport http --scope user resumebooster https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp --header "Authorization: Bearer $RESUMEBOOSTER_KEY"
 
-Cline (`cline_mcp_settings.json`):
+Cursor (`~/.cursor/mcp.json`; with a key, add `"headers": { "Authorization": "Bearer ${env:RESUMEBOOSTER_KEY}" }` — Cursor resolves the variable):
 
     {
       "mcpServers": {
         "resumebooster": {
-          "type": "streamableHttp",
-          "url": "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp",
-          "headers": {
-            "Authorization": "Bearer rb_live_...your key..."
-          }
+          "url": "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp"
         }
       }
     }
 
-Cursor (`~/.cursor/mcp.json`):
-
-    {
-      "mcpServers": {
-        "resumebooster": {
-          "url": "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp",
-          "headers": {
-            "Authorization": "Bearer rb_live_...your key..."
-          }
-        }
-      }
-    }
-
-VS Code (`.vscode/mcp.json`):
+VS Code (`.vscode/mcp.json`; it prompts for the key, Enter leaves it empty):
 
     {
       "inputs": [
@@ -78,11 +69,26 @@ Gemini CLI:
 
     gemini mcp add --transport http --scope user resumebooster https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp
 
-Codex CLI (`~/.codex/config.toml`):
+Codex CLI:
+
+    codex mcp add resumebooster --url https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp
+
+Codex CLI with a key (`~/.codex/config.toml`; the key is read from `RESUMEBOOSTER_KEY`):
 
     [mcp_servers.resumebooster]
     url = "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp"
     bearer_token_env_var = "RESUMEBOOSTER_KEY"
+
+Cline (`~/.cline/mcp.json`, or the Remote Servers tab: Server Name, Server URL, Transport Type "Streamable HTTP", Add Server):
+
+    {
+      "mcpServers": {
+        "resumebooster": {
+          "type": "streamableHttp",
+          "url": "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp"
+        }
+      }
+    }
 
 Zed (`settings.json`):
 
@@ -94,18 +100,17 @@ Zed (`settings.json`):
       }
     }
 
-Windsurf:
+Windsurf (`~/.codeium/windsurf/mcp_config.json`):
 
     {
       "mcpServers": {
         "resumebooster": {
-          "serverUrl": "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp",
-          "headers": {
-            "Authorization": "Bearer rb_live_...your key..."
-          }
+          "serverUrl": "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp"
         }
       }
     }
+
+Claude (claude.ai, Claude Desktop) and ChatGPT have no config file: the person adds the address in the app's own dialog — the steps are on https://resumebooster.work/agents and in README.md.
 
 ## What the tools are
 
@@ -115,3 +120,19 @@ Paid or pass: `fit_resume`. Apply (account with a mandate): `request_application
 A `https://resumebooster.work/jobs?job=<id>` link's `id` is the argument `get_job`, `fetch`, `check_apply_support` and `request_application` take.
 
 Do not invent a posting, a salary or an employer fact the tools did not return. `check_jobs_open` re-verifies a shortlist cheaply before `get_jobs`. Never call `request_application` without the person's explicit yes for that job id.
+
+## If a tool refuses
+
+- "Sign-in through this server is not switched on yet, so this tool needs a key." (while sign-in is off) — The tool needs your account, and sign-in from chat apps is not switched on today. Search, board statistics and full postings still work with no key. To use every tool, connect from Claude Code, Cursor or VS Code with a free key (https://resumebooster.work/data-api).
+- "The unkeyed allowance is spent" — Your network address used its 25 free calls today; an office or a chat service counts as one address. Get a free key at https://resumebooster.work/data-api (1000 calls a day, no account) and add it to your app. Resets at midnight UTC.
+- "That key is not recognised." — The key was cut off, or the header lacks `Bearer ` with the space. The header must read `Authorization: Bearer rb_live_…`. A key is shown once; get a new one if lost (the old one stops working).
+- "This key has been revoked." — A newer key was made for the same account or email; only the newest works. Use the newest key, or make one more and update every app that holds the old one.
+- "Daily quota of" — The free key's day is spent. Wait for midnight UTC; the unkeyed tools still answer; an Agent Pass raises the limit for its hours.
+- "requests/minute." — Too many calls in one minute. Wait one minute.
+- "fit_resume is a paid feature" — Résumé fit scoring needs a paid key or a live Agent Pass. https://resumebooster.work/data-api for a paid key, or https://resumebooster.work/agents/pass — search keeps working.
+- "The apply agent needs an active Agent plan or a live pass." — Applying is paid. https://resumebooster.work/agents/pass (sign in first), or the Agent plan on the site.
+- "No agent mandate on this account." — The apply agent is not set up yet (the same answer names "Your agent is switched off." and "No resume on file" when that is the blocker). Account → set up the apply agent: turn it on, choose countries and field, add the CV. The off switch always wins.
+- "The pass on this account is not live." — The pass ended, or its applications are used ("No applications left on this pass."). Search keeps working; buy another pass when the clock ends.
+- "That is not a job id from this board." — You passed a link or a title. Use the id from a search, e.g. `greenhouse:acme:12345`; the id in a `https://resumebooster.work/jobs?job=<id>` link is the same one.
+- "This is an MCP server for AI agents, not a web page" — You opened the address like a web page. Nothing is wrong. Paste it into your agent; the how-to is https://resumebooster.work/agents.
+- "Sign in to use this tool" (while sign-in is on) — A tool that needs a key was called with none (HTTP 401 from a script or curl). Send `Authorization: Bearer <key>` (free at https://resumebooster.work/data-api), or call one of `board_stats`, `search_jobs`, `search` and `fetch`.
