@@ -340,7 +340,7 @@ Every search you run travels to the server as the query you typed. A key is stor
 ## This repository
 
 - `mcp.config.json` is the only place a URL, tool name, cap, quota, host step or troubleshooting row is written. `npm run build` regenerates every other file; `npm test` fails if any generated file was edited by hand or the constants changed without a rebuild, validates each manifest against the schema its host publishes (copies under `schemas/`, fetched 2026-09-16), and checks that no generated file carries a placeholder inside an Authorization value.
-- The tool list, the host ids (the six above and the long tail) and the sign-in key are a mirror of the site's own (`resume-signal-pro/src/config/mcp-tools.ts` at `6a43bd41`); when that changes, this file is re-synced and rebuilt.
+- The tool list, the host ids (the six above and the long tail) and the sign-in key are a mirror of the site's own (`resume-signal-pro/src/config/mcp-tools.ts` at `7266f38c`); when that changes, this file is re-synced and rebuilt.
 - Every vendor label in the steps above is quoted from the vendor's documentation on the date in [docs-snapshot.md](./docs-snapshot.md); a label that is not there is not published here.
 - `server.json` is the entry for the official MCP Registry.
 

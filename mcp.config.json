@@ -29,7 +29,7 @@
   "authorizationServerMetadataUrl": "https://bwhdazbotpblihdxcmho.supabase.co/.well-known/oauth-authorization-server/auth/v1",
   "mirror": {
     "of": "resume-signal-pro/src/config/mcp-tools.ts",
-    "at": "6a43bd41",
+    "at": "7266f38c",
     "note": "hosts[].id order and signInMetaKey mirror the connect3 page lane's MCP_HOSTS/MCP_SIGN_IN_META_KEY; re-stamp `at` when that commit lands"
   },
   "tools": [
