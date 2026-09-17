@@ -21,6 +21,9 @@ Fetched 2026-09-16 · used by: claude
 - The two-step dialog described here is rolling out gradually.
 - Request header authentication is in beta and available to a limited set of organizations.
 - Most servers that use bearer tokens reject the second form.
+- For Team and Enterprise plans — Owners must: Navigate to **Organization settings > Connectors**
+- Select **Add**, then **Custom**. If Claude asks for the connector type, choose **Web**.
+- Members then: Go to **Customize > Connectors** … Find the connector with "Custom" label … Click "Connect" to authenticate
 
 ## https://claude.com/docs/connectors/building/troubleshooting
 
@@ -132,6 +135,11 @@ Fetched 2026-09-16 · used by: cline
 - Click **Add Server**
 - set `"type": "streamableHttp"` explicitly for the recommended transport
 - ~/.cline/mcp.json
+- Edit your MCP config file and add either: **CLI:** `~/.cline/mcp.json`
+- In the Cline panel, click the **MCP Servers** icon (stacked server icon in the top toolbar).
+- Open the **Configure** tab.
+- Click **Configure MCP Servers** (button near the bottom).
+- This opens the MCP settings JSON used by the extension; add/update entries under `mcpServers`.
 
 Not on the page (so not published): `cline_mcp_settings.json`, `llms-install.md`
 
@@ -141,6 +149,7 @@ Fetched 2026-09-16 · used by: zed
 
 - When a remote MCP server has no configured "Authorization" header, Zed will prompt you to authenticate yourself against the MCP server using the standard MCP OAuth flow.
 - context_servers
+- (the sentence is unconditional on the server's state and names no timing — whether the prompt fires at connect or on a 401 is unverified)
 
 ## https://docs.devin.ai/desktop/cascade/mcp
 
@@ -149,6 +158,9 @@ Fetched 2026-09-16 · used by: windsurf
 - docs.windsurf.com/windsurf/cascade/mcp answers 307 to this URL
 - "serverUrl": "<your-server-url>/mcp"
 - ~/.codeium/windsurf/mcp_config.json
+- The MCP configuration on this page applies to the legacy Cascade agent only. The Devin Local agent — the default agent for new tabs — configures MCP servers in the Devin CLI config files instead.
+- The `~/.codeium/windsurf/mcp_config.json` file supports variable interpolation in the following fields: `command`, `args`, `env`, `serverUrl`, `url`, and `headers`.
+- "Bearer ${env:AUTH_TOKEN}"
 
 ## https://supabase.com/docs/guides/auth/oauth-server/mcp-authentication
 

@@ -23,6 +23,8 @@
   "version": "1.0.0",
   "description": "Job search over employers' own hiring systems. Search with no key; a free key opens every read tool.",
   "serverInfoName": "resumebooster-job-board",
+  "connectorName": "Resume Booster",
+  "protocolVersion": "2025-06-18",
   "signInMetaKey": "work.resumebooster/sign-in",
   "authorizationServerMetadataUrl": "https://bwhdazbotpblihdxcmho.supabase.co/.well-known/oauth-authorization-server/auth/v1",
   "mirror": {
@@ -112,7 +114,7 @@
       "also": "claude.ai, Claude Desktop, Claude on your phone",
       "steps": [
         "In Claude, open **Customize**, then **Connectors**.",
-        "Click **Add custom connector**.",
+        "Click **Add custom connector**. On a Team or Enterprise plan there is no such button: an owner adds the connector under **Organization settings > Connectors** (**Add**, then **Custom**; if it asks for the connector type, **Web**), and you then find it under **Customize > Connectors** with the \"Custom\" label and click **Connect**.",
         "If it asks for a **Name**, type `{{displayName}}`.",
         "Paste this address into **MCP server URL**: `{{url}}` — this address is on Supabase, the company that hosts our server; it is ours. Paste it exactly as it is.",
         "If Claude asks about **Authentication**, choose **Sign in when needed**. If it asks about **OAuth client**, choose **Register automatically**. Claude may already show these as \"Detected\" — leave them. Do not choose **No sign-in**: Claude cannot change that later, so the tools that need your account would stay off until you remove the connector and add it again.",
@@ -120,7 +122,7 @@
         "In a chat, click **+**, open **Connectors**, and switch **{{displayName}}** on.",
         "Ask Claude: `Using {{displayName}}, call board_stats and tell me how many jobs are open right now.`"
       ],
-      "verify": "Under **+ → Connectors**, {{displayName}} is on. Ask \"call board_stats\": the answer names the number of open postings and a note like \"unkeyed: N of {{perAddressPerDay}} calls left today\".",
+      "verify": "Under **+ → Connectors**, {{displayName}} is on. Ask \"call board_stats\": the answer names the number of open postings and a note that reads \"unkeyed: N of {{perAddressPerDay}} anonymous calls left today\".",
       "signInOn": "the first time Claude needs your account — to open a posting in full, to check a shortlist, or to apply — a **Connect** card appears in the chat. Click it, sign in to {{displayName}}, press **Allow**, and Claude continues where it stopped."
     },
     {
@@ -165,21 +167,21 @@
       "name": "VS Code",
       "steps": [
         "Paste this link into your browser's address bar — VS Code asks you to confirm: `{{vscodeLink}}` (Insiders: `{{vscodeInsidersLink}}`).",
-        "Or paste the block below into `.vscode/mcp.json`. When the server starts, VS Code asks for the key; press Enter to leave it empty and use the tools that need no key.",
+        "Or paste the block below into `.vscode/mcp.json`. When the server starts, VS Code asks for the key; leave it empty to use the tools that need no key (VS Code's own document does not say what an empty answer does — if the server does not start, use the link in step 1 instead).",
         "In the chat, ask: `call board_stats`."
       ],
-      "verify": "When it prompts for the key, Enter leaves it empty; ask the chat \"call board_stats\"."
+      "verify": "If you used the mcp.json block, VS Code asks for the key at start — leave it empty (the link in step 1 declares no key, so it asks nothing). Either way, ask the chat \"call board_stats\" — the count and the unkeyed note come back."
     },
     {
       "id": "more",
-      "name": "Any other MCP client",
+      "name": "More…",
       "steps": [
-        "POST one JSON-RPC 2.0 message per request to `{{url}}` (Streamable HTTP; no session to keep); the first one is the `initialize` message below.",
+        "Pick your app below — each has its own block. Anything else that speaks MCP works too: it is one plain web address, and **Any client / curl** at the end shows the first message.",
         "Then ask your agent to call `board_stats`."
       ],
-      "keyed": "With a key, send `Authorization: Bearer <key>` on each request; without one, {{anonToolsProse}} still answer.",
       "verify": "The `initialize` answer's `serverInfo.name` is `{{serverInfoName}}`; the **Test the server** button on {{agentsPage}} runs this for you.",
-      "signInOn": "without a key, a tool that needs your account answers a sign-in challenge (HTTP 401); a client that supports sign-in opens it, and a client that does not needs a free key."
+      "signInOn": "without a key, a tool that needs your account answers a sign-in challenge (HTTP 401); a client that supports sign-in opens it, and a client that does not needs a free key.",
+      "also": "Gemini CLI, Codex CLI, Cline, Zed, Windsurf, anything else"
     }
   ],
   "moreHosts": [
@@ -207,7 +209,7 @@
       "id": "cline",
       "name": "Cline",
       "steps": [
-        "In the **Remote Servers** tab: **Server Name** `{{serverName}}`, **Server URL** `{{url}}`, **Transport Type** **Streamable HTTP**, then **Add Server**. Or paste the block below into `~/.cline/mcp.json`.",
+        "In the **Remote Servers** tab: **Server Name** `{{serverName}}`, **Server URL** `{{url}}`, **Transport Type** **Streamable HTTP**, then **Add Server**. Or paste the block below into `~/.cline/mcp.json` (the Cline CLI's file; in the VS Code extension, open the **MCP Servers** panel, the **Configure** tab, then **Configure MCP Servers** and add the same block).",
         "Ask: `call board_stats`."
       ],
       "verify": "\"call board_stats\" answers with the count and the unkeyed note."
@@ -217,16 +219,16 @@
       "name": "Zed",
       "steps": [
         "Paste the block below into `settings.json`.",
+        "Zed prompts you to sign in whenever no `Authorization` header is set (its own document says so). If the curl above prints `\"off\"`, that prompt cannot finish — add `\"headers\": { \"Authorization\": \"Bearer …\" }` with a free key from {{keyPage}} to the block, in your own settings file only.",
         "Ask: `call board_stats`."
       ],
-      "verify": "\"call board_stats\" answers with the count and the unkeyed note.",
-      "signInOn": "with no `Authorization` header set, Zed offers the server's sign-in itself."
+      "verify": "\"call board_stats\" answers with the count and the unkeyed note."
     },
     {
       "id": "windsurf",
       "name": "Windsurf",
       "steps": [
-        "Paste the block below into `~/.codeium/windsurf/mcp_config.json`.",
+        "Paste the block below into `~/.codeium/windsurf/mcp_config.json`. Windsurf's document says this file configures the legacy Cascade agent only; the Devin Local agent, the default for new tabs, reads the Devin CLI config files instead.",
         "Ask: `call board_stats`."
       ],
       "verify": "\"call board_stats\" answers with the count and the unkeyed note."
@@ -235,8 +237,8 @@
       "id": "any-client",
       "name": "Any client / curl",
       "steps": [
-        "POST one JSON-RPC message per request to `{{url}}`; the first one is the `initialize` message (the block under \"Any other MCP client\" above).",
-        "With a key, send `Authorization: Bearer <key>` on each request."
+        "POST one JSON-RPC 2.0 message per request to `{{url}}` (Streamable HTTP; no session to keep); the first one is the `initialize` message below.",
+        "With a key, send `Authorization: Bearer <key>` on each request; without one, {{anonToolsProse}} still answer."
       ],
       "verify": "The `initialize` answer's `serverInfo.name` is `{{serverInfoName}}`; the **Test the server** button on {{agentsPage}} runs this for you."
     },
@@ -401,7 +403,10 @@
         "Authentication settings (OAuth credentials and request headers) can't be changed after a connector is added. To change them, remove the connector and add it again with the new details.",
         "The two-step dialog described here is rolling out gradually.",
         "Request header authentication is in beta and available to a limited set of organizations.",
-        "Most servers that use bearer tokens reject the second form."
+        "Most servers that use bearer tokens reject the second form.",
+        "For Team and Enterprise plans — Owners must: Navigate to **Organization settings > Connectors**",
+        "Select **Add**, then **Custom**. If Claude asks for the connector type, choose **Web**.",
+        "Members then: Go to **Customize > Connectors** … Find the connector with \"Custom\" label … Click \"Connect\" to authenticate"
       ]
     },
     {
@@ -539,7 +544,12 @@
         "Choose **Transport Type**: **Streamable HTTP** (recommended)",
         "Click **Add Server**",
         "set `\"type\": \"streamableHttp\"` explicitly for the recommended transport",
-        "~/.cline/mcp.json"
+        "~/.cline/mcp.json",
+        "Edit your MCP config file and add either: **CLI:** `~/.cline/mcp.json`",
+        "In the Cline panel, click the **MCP Servers** icon (stacked server icon in the top toolbar).",
+        "Open the **Configure** tab.",
+        "Click **Configure MCP Servers** (button near the bottom).",
+        "This opens the MCP settings JSON used by the extension; add/update entries under `mcpServers`."
       ],
       "absent": [
         "cline_mcp_settings.json",
@@ -552,7 +562,8 @@
       "block": "zed",
       "sentences": [
         "When a remote MCP server has no configured \"Authorization\" header, Zed will prompt you to authenticate yourself against the MCP server using the standard MCP OAuth flow.",
-        "context_servers"
+        "context_servers",
+        "(the sentence is unconditional on the server's state and names no timing — whether the prompt fires at connect or on a 401 is unverified)"
       ]
     },
     {
@@ -562,7 +573,10 @@
       "sentences": [
         "docs.windsurf.com/windsurf/cascade/mcp answers 307 to this URL",
         "\"serverUrl\": \"<your-server-url>/mcp\"",
-        "~/.codeium/windsurf/mcp_config.json"
+        "~/.codeium/windsurf/mcp_config.json",
+        "The MCP configuration on this page applies to the legacy Cascade agent only. The Devin Local agent — the default agent for new tabs — configures MCP servers in the Devin CLI config files instead.",
+        "The `~/.codeium/windsurf/mcp_config.json` file supports variable interpolation in the following fields: `command`, `args`, `env`, `serverUrl`, `url`, and `headers`.",
+        "\"Bearer ${env:AUTH_TOKEN}\""
       ]
     },
     {

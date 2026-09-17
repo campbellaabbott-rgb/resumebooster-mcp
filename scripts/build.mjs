@@ -13,7 +13,7 @@
 // and sentence below reads it from there.
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // BUILD_ROOT lets the test run --check against a mutated copy to prove it bites.
@@ -197,13 +197,22 @@ const geminiAddKeyed = `gemini mcp add --transport http --scope user --header "A
 const geminiExtInstall = `gemini extensions install ${C.repoUrl}`;
 const codexAdd = `codex mcp add ${NAME} --url ${URL}`;
 const codexToml = `[mcp_servers.${NAME}]\nurl = "${URL}"\nbearer_token_env_var = "${ENV}"`;
-const zedJson = JSON.stringify({ context_servers: { [NAME]: { url: URL } } }, null, 2);
-// Windsurf and Cline document a `headers` object and no variable expansion,
-// so their keyed form is a sentence (add the header in the host's own
+// Zed and Cline document a `headers` object and no variable expansion, so
+// their keyed form is a sentence (add the header in the host's own
 // user-level file), never a value with a placeholder in it.
-const windsurfJson = JSON.stringify({ mcpServers: { [NAME]: { serverUrl: URL } } }, null, 2);
+const zedJson = JSON.stringify({ context_servers: { [NAME]: { url: URL } } }, null, 2);
 const clineJson = JSON.stringify({ mcpServers: { [NAME]: { type: "streamableHttp", url: URL } } }, null, 2);
-const curlInitialize = `curl -s -X POST ${URL} -H 'content-type: application/json' -H 'mcp-protocol-version: 2025-06-18' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}'`;
+// Windsurf resolves ${env:NAME} in `headers` (docs.devin.ai/desktop/cascade/mcp,
+// docs-snapshot.md), so its keyed file names the variable like Cursor's.
+const windsurfJson = JSON.stringify({ mcpServers: { [NAME]: { serverUrl: URL } } }, null, 2);
+const windsurfJsonKeyed = JSON.stringify(
+  { mcpServers: { [NAME]: { serverUrl: URL, headers: { Authorization: `Bearer \${env:${ENV}}` } } } },
+  null,
+  2,
+);
+// The protocol revision is the constants file's, spelled once here and mirrored to the site's MCP_PROTOCOL_VERSION.
+const PROTOCOL = C.protocolVersion;
+const curlInitialize = `curl -s -X POST ${URL} -H 'content-type: application/json' -H 'mcp-protocol-version: ${PROTOCOL}' -d '${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: PROTOCOL, capabilities: {}, clientInfo: { name: "curl", version: "0" } } })}'`;
 const signInReader = `${curlInitialize} | jq '.result._meta["${C.signInMetaKey}"].state'`;
 const indent = (block) => block.split("\n").map((l) => "    " + l).join("\n");
 
@@ -217,7 +226,7 @@ const pluginInstall = `/plugin install ${NAME}@${NAME}`;
 // name a thing this file does not know.
 const FILL = {
   url: URL,
-  displayName: "Resume Booster",
+  displayName: C.connectorName,
   serverName: NAME,
   serverInfoName: C.serverInfoName,
   toolCount: String(C.tools.length),
@@ -276,19 +285,22 @@ const HOST_BLOCKS = {
     keyed: `With a key: add \`"headers": { "Authorization": "Bearer …" }\` with your key to that server, in your own user-level file only — never in a committed one.`,
   },
   zed: {
+    // The keyed sentence is Zed's step 1: its sign-in prompt fires whenever
+    // no header is set, so the rule and the key belong in the same breath.
     block: ["json", zedJson],
-    keyed: `With a key: add \`"headers": { "Authorization": "Bearer …" }\` with your key to that server, in your own settings file only.`,
   },
   windsurf: {
     block: ["json", windsurfJson],
-    keyed: `With a key: add \`"headers": { "Authorization": "Bearer …" }\` with your key to that server, in your own user-level file only — never in a committed one.`,
+    keyed: `With a free key, the same file names the variable and Windsurf fills it in (\`\${env:${ENV}}\` is resolved in \`headers\`), so the key never sits in the file:\n\n\`\`\`sh\n${exportLine}\n\`\`\`\n\n\`\`\`json\n${windsurfJsonKeyed}\n\`\`\``,
   },
-  more: {
-    block: ["sh", curlInitialize],
-  },
+  // "More…" is the heading that introduces the long tail; its own steps are
+  // the intro, and the curl block belongs to the one client it describes.
+  more: {},
   "gemini-cli": HOST_BLOCKS_GEMINI(),
   "codex-cli": HOST_BLOCKS_CODEX(),
-  "any-client": {},
+  "any-client": {
+    block: ["sh", curlInitialize],
+  },
   "copy-the-prompt": {},
 };
 for (const h of ALL_HOSTS) if (!(h.id in HOST_BLOCKS)) throw new Error(`no block entry for host ${h.id}`);
@@ -348,7 +360,7 @@ ${verifyLine}
 - Tools: ${C.tools.length} — ${list(C.tools.map((t) => t.name))}
 - The how-to, per app, with a **Test the server** button: ${C.agentsPage}
 - Free key: ${C.keyPage}
-- One server, three names: \`${C.serverInfoName}\` is what \`initialize\` answers, \`${NAME}\` is the install name in every block below, and \`${C.registryName}\` is the name reserved for the MCP Registry (not published yet).
+- One server, four names: \`${C.serverInfoName}\` is what \`initialize\` answers, \`${NAME}\` is the install name in every block below, \`${C.connectorName}\` is the name you type into Claude's or ChatGPT's own dialog, and \`${C.registryName}\` is the name reserved for the MCP Registry (not published yet).
 
 ${jobIdSentence}
 
@@ -362,11 +374,9 @@ The unkeyed allowance is ${addressGloss}
 
 ## Install
 
-Pick your app. Every block works with no key on its first call; the keyed variant under it is optional.
+Pick your app. Every block but Zed's works with no key on its first call (Zed asks you to sign in when no key is set — its section says what to do); the keyed variant under a block is optional.
 
 ${HOSTS.map(hostSection).join("\n")}
-### More apps
-
 ${MORE_HOSTS.map(hostSection).join("\n").replace(/^### /gm, "#### ")}
 ## If it does not work
 
@@ -433,7 +443,7 @@ Cursor (\`~/.cursor/mcp.json\`; with a key, add \`"headers": { "Authorization": 
 
 ${indent(cursorJsonKeyless)}
 
-VS Code (\`.vscode/mcp.json\`; it prompts for the key, Enter leaves it empty):
+VS Code (\`.vscode/mcp.json\`; it prompts for the key at start — leave it empty for the unkeyed tools; the \`vscode:mcp/install\` link form declares no input and asks nothing):
 
 ${indent(vscodeMcpJson)}
 
@@ -449,15 +459,15 @@ Codex CLI with a key (\`~/.codex/config.toml\`; the key is read from \`${ENV}\`)
 
 ${indent(codexToml)}
 
-Cline (\`~/.cline/mcp.json\`, or the Remote Servers tab: Server Name, Server URL, Transport Type "Streamable HTTP", Add Server):
+Cline (the Cline CLI's \`~/.cline/mcp.json\`; the VS Code extension's settings JSON is under the MCP Servers panel → Configure → Configure MCP Servers; or the Remote Servers tab: Server Name, Server URL, Transport Type "Streamable HTTP", Add Server):
 
 ${indent(clineJson)}
 
-Zed (\`settings.json\`):
+Zed (\`settings.json\`; Zed prompts for the server's sign-in whenever no Authorization header is set — if the reader above prints "off", add \`"headers": { "Authorization": "Bearer …" }\` with the person's key, in their own settings file only):
 
 ${indent(zedJson)}
 
-Windsurf (\`~/.codeium/windsurf/mcp_config.json\`):
+Windsurf (\`~/.codeium/windsurf/mcp_config.json\` — the legacy Cascade agent's file; the Devin Local agent reads the Devin CLI config files instead; with a key, add \`"headers": { "Authorization": "Bearer \${env:${ENV}}" }\` — Windsurf resolves the variable):
 
 ${indent(windsurfJson)}
 
@@ -546,26 +556,31 @@ const OUT = {
 export const GENERATED = Object.keys(OUT);
 export const LINKS = { cursorDeepLink, vscodeLink, vscodeInsidersLink, vscodeBadgeLink, signInReader, curlInitialize };
 
-const check = process.argv.includes("--check");
-let drift = 0;
-for (const [rel, body] of Object.entries(OUT)) {
-  const abs = join(ROOT, rel);
-  if (check) {
-    const cur = existsSync(abs) ? readFileSync(abs, "utf8") : null;
-    if (cur !== body) {
-      drift++;
-      console.error(`drift: ${rel}${cur === null ? " (missing)" : ""}`);
+// The write/check loop runs only when this file is the entry point; a test
+// that imports FILL, GENERATED or LINKS must never rewrite the tree.
+const isEntry = !!process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+if (isEntry) {
+  const check = process.argv.includes("--check");
+  let drift = 0;
+  for (const [rel, body] of Object.entries(OUT)) {
+    const abs = join(ROOT, rel);
+    if (check) {
+      const cur = existsSync(abs) ? readFileSync(abs, "utf8") : null;
+      if (cur !== body) {
+        drift++;
+        console.error(`drift: ${rel}${cur === null ? " (missing)" : ""}`);
+      }
+    } else {
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, body);
+      console.log(`wrote ${rel}`);
     }
-  } else {
-    mkdirSync(dirname(abs), { recursive: true });
-    writeFileSync(abs, body);
-    console.log(`wrote ${rel}`);
   }
-}
-if (check) {
-  if (drift) {
-    console.error(`${drift} generated file(s) differ from mcp.config.json — run \`npm run build\``);
-    process.exit(1);
+  if (check) {
+    if (drift) {
+      console.error(`${drift} generated file(s) differ from mcp.config.json — run \`npm run build\``);
+      process.exit(1);
+    }
+    console.log(`${GENERATED.length} generated files match mcp.config.json`);
   }
-  console.log(`${GENERATED.length} generated files match mcp.config.json`);
 }

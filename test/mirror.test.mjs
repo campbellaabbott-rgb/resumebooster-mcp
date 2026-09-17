@@ -331,7 +331,19 @@ test("every block is keyless first: the first fenced block or step under each ho
     assert.ok(firstStep.length > 0, `${h.name}: no numbered step`);
     assert.ok(!/--header|Authorization/.test(firstStep), `${h.name}: step 1 needs a key`);
     assert.ok(section.includes("**How you know it worked:**"), `${h.name}: no verify line`);
+    if (h.id === "zed") {
+      // Zed's doc: with no Authorization header it prompts for the server's
+      // sign-in, unconditionally. The section carries that rule and the
+      // reader next to the block — never a "when sign-in is on" slot alone.
+      const rule = section.split("\n").find((l) => /^2\. /.test(l)) ?? "";
+      assert.match(rule, /whenever no `Authorization` header is set/, "Zed: the prompt rule is step 2");
+      assert.match(rule, /curl above prints `"off"`/, "Zed: the rule hands the reader the state reader");
+      assert.match(rule, /"Bearer …"/, "Zed: the keyed form is a prose placeholder, never a value");
+      assert.ok(!/When sign-in is on — /.test(section), "Zed: no on-state slot (the prompt does not wait for the state)");
+    }
   }
+  // The README's own claim about keyless blocks names the one exception.
+  assert.ok(readme.includes("Every block but Zed's works with no key on its first call"), "the keyless claim exempts Zed");
 });
 
 test("the hosts are in the owner's order (six, then the long tail), ids unique, every step's placeholders resolve", async () => {
@@ -417,6 +429,15 @@ test("teeth: a placeholder pasted into a keyed block, and a hand-typed 'Mixed', 
 // trailing comment can neither satisfy nor fail the parse.
 const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:\\])\/\/.*$/gm, "$1");
 
+test("importing the build script writes nothing: the write loop runs only when it is the entry point", async () => {
+  const before = Object.fromEntries(["README.md", ".mcp.json"].map((f) => [f, statSync(join(ROOT, f)).mtimeMs]));
+  const readmeBefore = readText("README.md");
+  const { GENERATED, fill } = await import(`../scripts/build.mjs?nocache=${Date.now()}`);
+  assert.ok(GENERATED.length >= 10 && typeof fill === "function");
+  for (const [f, t] of Object.entries(before)) assert.equal(statSync(join(ROOT, f)).mtimeMs, t, `${f} was rewritten by an import`);
+  assert.equal(readText("README.md"), readmeBefore);
+});
+
 test("the comment stripper drops a trailing comment on a code line and keeps a URL", () => {
   const src = '{ name: "real", tier: "read" }, // { name: "ghost", tier: "read" }\nconst u = "https://example.test/x"; // trailing';
   const out = stripComments(src);
@@ -486,6 +507,11 @@ test(
       assert.equal(C.signInMetaKey, metaKey[1], "signInMetaKey drifted from the site's MCP_SIGN_IN_META_KEY");
       assert.deepEqual(C.hosts.map((h) => h.id), siteHostIds, "host ids or order drifted from the site's MCP_HOSTS — re-sync mcp.config.json, re-stamp mirror.at, rebuild");
       assert.deepEqual(C.moreHosts.map((h) => h.id), siteMoreIds, "the long tail drifted from the site's MCP_MORE_HOSTS");
+    } else if (inCi) {
+      // CI checks the site out at its default branch: a sibling with no
+      // connect3 identifiers means the site commit has not landed, and a
+      // push before it is exactly what this test exists to refuse.
+      assert.fail(`${mirrorFile} has no MCP_SIGN_IN_META_KEY / MCP_HOSTS ids — the site's connect3 commit is not on its default branch yet; do not push the install repo before it`);
     } else {
       console.log(`  note: ${mirrorFile} predates connect3 (no MCP_SIGN_IN_META_KEY, no MCP_HOSTS ids) — host-id and meta-key mirror not yet enforceable; mirror.at=${C.mirror.at}`);
     }
@@ -496,13 +522,24 @@ test(
     const fnDir = join(siblingDir, "supabase", "functions", "agent-mcp");
     const serverSrc = ["index.ts", "oauth.ts"].map((n) => stripComments(readFileSync(join(fnDir, n), "utf8"))).join("\n");
     assert.ok(serverSrc.includes(`name: "${C.serverInfoName}",`), "serverInfoName drifted from SERVER_INFO.name — the README's verify line would name a server that does not exist");
+    // The unkeyed note the verify lines quote is the server's own sentence shape.
+    assert.ok(serverSrc.includes("anonymous calls left today"), "the unkeyed note's wording moved in index.ts — re-word the verify lines");
+    assert.ok(C.hosts.find((h) => h.id === "claude").verify.includes("anonymous calls left today"), "the Claude verify line quotes the server's note");
+    // The connector name and the protocol revision mirror the site's constants.
+    const connector = ts.match(/MCP_CONNECTOR_NAME\s*=\s*"([^"]+)"/);
+    const protocol = ts.match(/MCP_PROTOCOL_VERSION\s*=\s*"([^"]+)"/);
+    if (connector || protocol || inCi) {
+      assert.ok(connector && protocol, "the site declares MCP_CONNECTOR_NAME and MCP_PROTOCOL_VERSION");
+      assert.equal(C.connectorName, connector[1], "connectorName drifted from the site's MCP_CONNECTOR_NAME");
+      assert.equal(C.protocolVersion, protocol[1], "protocolVersion drifted from the site's MCP_PROTOCOL_VERSION");
+    }
     const dot7 = existsSync(join(fnDir, "as-probe.ts"));
     const pending = [];
     for (const r of C.troubleshooting.filter((x) => x.flag === "server")) {
       const found = serverSrc.includes(r.symptom);
       if (found) continue;
-      if (!dot7) pending.push(r.symptom);
-      else assert.fail(`troubleshooting symptom not in the server source: "${r.symptom}"`);
+      if (!dot7 && !inCi) pending.push(r.symptom);
+      else assert.fail(`troubleshooting symptom not in the server source: "${r.symptom}"${dot7 ? "" : " (agent-mcp .7's as-probe.ts is not in the sibling — the site commit has not landed; do not push before it)"}`);
     }
     if (pending.length) console.log(`  note: ${pending.length} row(s) quote agent-mcp .7 strings not yet in the sibling: ${pending.map((x) => JSON.stringify(x)).join(", ")}`);
 

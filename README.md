@@ -9,7 +9,7 @@ Job search over employers' own hiring systems. Search with no key; a free key op
 - Tools: 15 — `search_jobs`, `get_job`, `get_jobs`, `check_jobs_open`, `check_apply_support`, `board_stats`, `employer_hiring_record`, `employer_growth`, `key_status`, `debug_search`, `search`, `fetch`, `fit_resume`, `request_application`, `application_status`
 - The how-to, per app, with a **Test the server** button: https://resumebooster.work/agents
 - Free key: https://resumebooster.work/data-api
-- One server, three names: `resumebooster-job-board` is what `initialize` answers, `resumebooster` is the install name in every block below, and `work.resumebooster/jobs` is the name reserved for the MCP Registry (not published yet).
+- One server, four names: `resumebooster-job-board` is what `initialize` answers, `resumebooster` is the install name in every block below, `Resume Booster` is the name you type into Claude's or ChatGPT's own dialog, and `work.resumebooster/jobs` is the name reserved for the MCP Registry (not published yet).
 
 A `https://resumebooster.work/jobs?job=<id>` link's `id` is the argument `get_job`, `fetch`, `check_apply_support` and `request_application` take.
 
@@ -34,12 +34,12 @@ The unkeyed allowance is 25 free calls a day per network address — an office, 
 
 ## Install
 
-Pick your app. Every block works with no key on its first call; the keyed variant under it is optional.
+Pick your app. Every block but Zed's works with no key on its first call (Zed asks you to sign in when no key is set — its section says what to do); the keyed variant under a block is optional.
 
 ### Claude (claude.ai, Claude Desktop, Claude on your phone)
 
 1. In Claude, open **Customize**, then **Connectors**.
-2. Click **Add custom connector**.
+2. Click **Add custom connector**. On a Team or Enterprise plan there is no such button: an owner adds the connector under **Organization settings > Connectors** (**Add**, then **Custom**; if it asks for the connector type, **Web**), and you then find it under **Customize > Connectors** with the "Custom" label and click **Connect**.
 3. If it asks for a **Name**, type `Resume Booster`.
 4. Paste this address into **MCP server URL**: `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp` — this address is on Supabase, the company that hosts our server; it is ours. Paste it exactly as it is.
 5. If Claude asks about **Authentication**, choose **Sign in when needed**. If it asks about **OAuth client**, choose **Register automatically**. Claude may already show these as "Detected" — leave them. Do not choose **No sign-in**: Claude cannot change that later, so the tools that need your account would stay off until you remove the connector and add it again.
@@ -49,7 +49,7 @@ Pick your app. Every block works with no key on its first call; the keyed varian
 
 When sign-in is on — the first time Claude needs your account — to open a posting in full, to check a shortlist, or to apply — a **Connect** card appears in the chat. Click it, sign in to Resume Booster, press **Allow**, and Claude continues where it stopped.
 
-**How you know it worked:** Under **+ → Connectors**, Resume Booster is on. Ask "call board_stats": the answer names the number of open postings and a note like "unkeyed: N of 25 calls left today".
+**How you know it worked:** Under **+ → Connectors**, Resume Booster is on. Ask "call board_stats": the answer names the number of open postings and a note that reads "unkeyed: N of 25 anonymous calls left today".
 
 ### ChatGPT (developer mode)
 
@@ -142,7 +142,7 @@ export RESUMEBOOSTER_KEY=<paste your key here>
 ### VS Code
 
 1. Paste this link into your browser's address bar — VS Code asks you to confirm: `vscode:mcp/install?%7B%22name%22%3A%22resumebooster%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fbwhdazbotpblihdxcmho.supabase.co%2Ffunctions%2Fv1%2Fagent-mcp%22%7D` (Insiders: `vscode-insiders:mcp/install?%7B%22name%22%3A%22resumebooster%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fbwhdazbotpblihdxcmho.supabase.co%2Ffunctions%2Fv1%2Fagent-mcp%22%7D`).
-2. Or paste the block below into `.vscode/mcp.json`. When the server starts, VS Code asks for the key; press Enter to leave it empty and use the tools that need no key.
+2. Or paste the block below into `.vscode/mcp.json`. When the server starts, VS Code asks for the key; leave it empty to use the tools that need no key (VS Code's own document does not say what an empty answer does — if the server does not start, use the link in step 1 instead).
 3. In the chat, ask: `call board_stats`.
 
 ```json
@@ -169,24 +169,16 @@ export RESUMEBOOSTER_KEY=<paste your key here>
 
 [![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522resumebooster%2522%252C%2522type%2522%253A%2522http%2522%252C%2522url%2522%253A%2522https%253A%252F%252Fbwhdazbotpblihdxcmho.supabase.co%252Ffunctions%252Fv1%252Fagent-mcp%2522%257D) — the same link as step 1, made clickable through vscode.dev's redirect (a convenience GitHub needs; VS Code's docs describe only the `vscode:` form).
 
-**How you know it worked:** When it prompts for the key, Enter leaves it empty; ask the chat "call board_stats".
+**How you know it worked:** If you used the mcp.json block, VS Code asks for the key at start — leave it empty (the link in step 1 declares no key, so it asks nothing). Either way, ask the chat "call board_stats" — the count and the unkeyed note come back.
 
-### Any other MCP client
+### More… (Gemini CLI, Codex CLI, Cline, Zed, Windsurf, anything else)
 
-1. POST one JSON-RPC 2.0 message per request to `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp` (Streamable HTTP; no session to keep); the first one is the `initialize` message below.
+1. Pick your app below — each has its own block. Anything else that speaks MCP works too: it is one plain web address, and **Any client / curl** at the end shows the first message.
 2. Then ask your agent to call `board_stats`.
-
-```sh
-curl -s -X POST https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp -H 'content-type: application/json' -H 'mcp-protocol-version: 2025-06-18' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}'
-```
-
-With a key, send `Authorization: Bearer <key>` on each request; without one, `board_stats`, `search_jobs`, `search` and `fetch` still answer.
 
 When sign-in is on — without a key, a tool that needs your account answers a sign-in challenge (HTTP 401); a client that supports sign-in opens it, and a client that does not needs a free key.
 
 **How you know it worked:** The `initialize` answer's `serverInfo.name` is `resumebooster-job-board`; the **Test the server** button on https://resumebooster.work/agents runs this for you.
-
-### More apps
 
 #### Gemini CLI
 
@@ -222,7 +214,7 @@ When sign-in is on — `codex mcp login resumebooster` starts the sign-in.
 
 #### Cline
 
-1. In the **Remote Servers** tab: **Server Name** `resumebooster`, **Server URL** `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp`, **Transport Type** **Streamable HTTP**, then **Add Server**. Or paste the block below into `~/.cline/mcp.json`.
+1. In the **Remote Servers** tab: **Server Name** `resumebooster`, **Server URL** `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp`, **Transport Type** **Streamable HTTP**, then **Add Server**. Or paste the block below into `~/.cline/mcp.json` (the Cline CLI's file; in the VS Code extension, open the **MCP Servers** panel, the **Configure** tab, then **Configure MCP Servers** and add the same block).
 2. Ask: `call board_stats`.
 
 ```json
@@ -243,7 +235,8 @@ With a key: add `"headers": { "Authorization": "Bearer …" }` with your key to 
 #### Zed
 
 1. Paste the block below into `settings.json`.
-2. Ask: `call board_stats`.
+2. Zed prompts you to sign in whenever no `Authorization` header is set (its own document says so). If the curl above prints `"off"`, that prompt cannot finish — add `"headers": { "Authorization": "Bearer …" }` with a free key from https://resumebooster.work/data-api to the block, in your own settings file only.
+3. Ask: `call board_stats`.
 
 ```json
 {
@@ -255,15 +248,11 @@ With a key: add `"headers": { "Authorization": "Bearer …" }` with your key to 
 }
 ```
 
-With a key: add `"headers": { "Authorization": "Bearer …" }` with your key to that server, in your own settings file only.
-
-When sign-in is on — with no `Authorization` header set, Zed offers the server's sign-in itself.
-
 **How you know it worked:** "call board_stats" answers with the count and the unkeyed note.
 
 #### Windsurf
 
-1. Paste the block below into `~/.codeium/windsurf/mcp_config.json`.
+1. Paste the block below into `~/.codeium/windsurf/mcp_config.json`. Windsurf's document says this file configures the legacy Cascade agent only; the Devin Local agent, the default for new tabs, reads the Devin CLI config files instead.
 2. Ask: `call board_stats`.
 
 ```json
@@ -276,14 +265,35 @@ When sign-in is on — with no `Authorization` header set, Zed offers the server
 }
 ```
 
-With a key: add `"headers": { "Authorization": "Bearer …" }` with your key to that server, in your own user-level file only — never in a committed one.
+With a free key, the same file names the variable and Windsurf fills it in (`${env:RESUMEBOOSTER_KEY}` is resolved in `headers`), so the key never sits in the file:
+
+```sh
+export RESUMEBOOSTER_KEY=<paste your key here>
+```
+
+```json
+{
+  "mcpServers": {
+    "resumebooster": {
+      "serverUrl": "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:RESUMEBOOSTER_KEY}"
+      }
+    }
+  }
+}
+```
 
 **How you know it worked:** "call board_stats" answers with the count and the unkeyed note.
 
 #### Any client / curl
 
-1. POST one JSON-RPC message per request to `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp`; the first one is the `initialize` message (the block under "Any other MCP client" above).
-2. With a key, send `Authorization: Bearer <key>` on each request.
+1. POST one JSON-RPC 2.0 message per request to `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp` (Streamable HTTP; no session to keep); the first one is the `initialize` message below.
+2. With a key, send `Authorization: Bearer <key>` on each request; without one, `board_stats`, `search_jobs`, `search` and `fetch` still answer.
+
+```sh
+curl -s -X POST https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp -H 'content-type: application/json' -H 'mcp-protocol-version: 2025-06-18' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}'
+```
 
 **How you know it worked:** The `initialize` answer's `serverInfo.name` is `resumebooster-job-board`; the **Test the server** button on https://resumebooster.work/agents runs this for you.
 

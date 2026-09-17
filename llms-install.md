@@ -43,7 +43,7 @@ Cursor (`~/.cursor/mcp.json`; with a key, add `"headers": { "Authorization": "Be
       }
     }
 
-VS Code (`.vscode/mcp.json`; it prompts for the key, Enter leaves it empty):
+VS Code (`.vscode/mcp.json`; it prompts for the key at start — leave it empty for the unkeyed tools; the `vscode:mcp/install` link form declares no input and asks nothing):
 
     {
       "inputs": [
@@ -79,7 +79,7 @@ Codex CLI with a key (`~/.codex/config.toml`; the key is read from `RESUMEBOOSTE
     url = "https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp"
     bearer_token_env_var = "RESUMEBOOSTER_KEY"
 
-Cline (`~/.cline/mcp.json`, or the Remote Servers tab: Server Name, Server URL, Transport Type "Streamable HTTP", Add Server):
+Cline (the Cline CLI's `~/.cline/mcp.json`; the VS Code extension's settings JSON is under the MCP Servers panel → Configure → Configure MCP Servers; or the Remote Servers tab: Server Name, Server URL, Transport Type "Streamable HTTP", Add Server):
 
     {
       "mcpServers": {
@@ -90,7 +90,7 @@ Cline (`~/.cline/mcp.json`, or the Remote Servers tab: Server Name, Server URL, 
       }
     }
 
-Zed (`settings.json`):
+Zed (`settings.json`; Zed prompts for the server's sign-in whenever no Authorization header is set — if the reader above prints "off", add `"headers": { "Authorization": "Bearer …" }` with the person's key, in their own settings file only):
 
     {
       "context_servers": {
@@ -100,7 +100,7 @@ Zed (`settings.json`):
       }
     }
 
-Windsurf (`~/.codeium/windsurf/mcp_config.json`):
+Windsurf (`~/.codeium/windsurf/mcp_config.json` — the legacy Cascade agent's file; the Devin Local agent reads the Devin CLI config files instead; with a key, add `"headers": { "Authorization": "Bearer ${env:RESUMEBOOSTER_KEY}" }` — Windsurf resolves the variable):
 
     {
       "mcpServers": {
