@@ -8,6 +8,8 @@
   "keyPage": "https://resumebooster.work/data-api",
   "passPage": "https://resumebooster.work/agents/pass",
   "jobsPage": "https://resumebooster.work/jobs",
+  "ghostJobIndexPage": "https://resumebooster.work/ghost-job-index",
+  "atsBenchmarksPage": "https://resumebooster.work/research/ats-score-benchmarks",
   "iconUrl": "https://resumebooster.work/icons/icon-512.png",
   "repoOwner": "campbellaabbott-rgb",
   "repoName": "resumebooster-mcp",
@@ -20,6 +22,14 @@
   "registryNameFallback": "io.github.campbellaabbott-rgb/jobs",
   "registrySchema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "registryDomain": "resumebooster.work",
+  "registry": {
+    "$comment": "The entry is LIVE: GET https://registry.modelcontextprotocol.io/v0/servers?search=work.resumebooster/jobs answered count 1, status active, publishedAt 2026-09-18T13:43:10Z, isLatest true, version 1.0.0, and its fields equal server.json's (read 2026-10-17). listingUrl is the registry's own page with its search box filled (the page reads ?q=); recordUrl is the entry as the registry API serves it. Set listed to false and the README goes back to saying the name is reserved.",
+    "listed": true,
+    "publishedAt": "2026-09-18",
+    "checkedAt": "2026-10-17",
+    "listingUrl": "https://registry.modelcontextprotocol.io/?q=work.resumebooster/jobs",
+    "recordUrl": "https://registry.modelcontextprotocol.io/v0/servers/work.resumebooster%2Fjobs/versions/latest"
+  },
   "version": "1.0.0",
   "description": "Job search over employers' own hiring systems. Search with no key; a free key opens every read tool.",
   "serverInfoName": "resumebooster-job-board",
@@ -29,8 +39,8 @@
   "authorizationServerMetadataUrl": "https://bwhdazbotpblihdxcmho.supabase.co/.well-known/oauth-authorization-server/auth/v1",
   "mirror": {
     "of": "resume-signal-pro/src/config/mcp-tools.ts",
-    "at": "7266f38c",
-    "note": "hosts[].id order and signInMetaKey mirror the connect3 page lane's MCP_HOSTS/MCP_SIGN_IN_META_KEY; re-stamp `at` when that commit lands"
+    "at": "08089496",
+    "note": "The last commit on the site's main that changed mcp-tools.ts (read at main 15baa8af, 2026-10-17; the live agent-mcp answers x-fn-build agent-mcp.2026-10-09.71, the build in that tree). hosts[].id order, signInMetaKey, anonCaps (with the Claude pool), withheldNote and the key-revoked, fit-paid and allowance-spent rows follow it; re-stamp `at` when that file changes"
   },
   "tools": [
     {
@@ -102,11 +112,14 @@
   ],
   "anonCaps": {
     "perAddressPerDay": 25,
+    "hostPoolPerDay": 500,
     "globalPerDay": 2000,
     "searchRows": 10
   },
   "freeKeyDailyQuota": 1000,
+  "withheldNote": "Two hiring systems on the job board are not handed on by this server or the data API: the U.S. federal job feed, whose terms forbid redistributing it as a data feed, and SmartRecruiters, withheld until SmartRecruiters (SAP) permits it. Their postings stay on the job board, where you can open them yourself.",
   "anonAddressHashRetentionDays": 7,
+  "freeKeyIdleRevokeDays": 30,
   "hosts": [
     {
       "id": "claude",
@@ -122,7 +135,7 @@
         "In a chat, click **+**, open **Connectors**, and switch **{{displayName}}** on.",
         "Ask Claude: `Using {{displayName}}, call board_stats and tell me how many jobs are open right now.`"
       ],
-      "verify": "Under **+ → Connectors**, {{displayName}} is on. Ask \"call board_stats\": the answer names the number of open postings and a note that reads \"unkeyed: N of {{perAddressPerDay}} anonymous calls left today\".",
+      "verify": "Under **+ → Connectors**, {{displayName}} is on. Ask \"call board_stats\": the answer names the number of open postings and a note of the form \"unkeyed: N of M anonymous calls left today\", where M is the allowance that answered (from Claude, the pool every Claude user shares).",
       "signInOn": "the first time Claude needs your account — to open a posting in full, to check a shortlist, or to apply — a **Connect** card appears in the chat. Click it, sign in to {{displayName}}, press **Allow**, and Claude continues where it stopped."
     },
     {
@@ -174,7 +187,7 @@
     },
     {
       "id": "more",
-      "name": "More…",
+      "name": "Other apps",
       "steps": [
         "Pick your app below — each has its own block. Anything else that speaks MCP works too: it is one plain web address, and **Any client / curl** at the end shows the first message.",
         "Then ask your agent to call `board_stats`."
@@ -287,7 +300,7 @@
       "symptom": "The unkeyed allowance is spent",
       "flag": "server",
       "state": "any",
-      "why": "Your network address used its {{perAddressPerDay}} free calls today; an office or a chat service counts as one address.",
+      "why": "Your network address used its free calls today; an office or a chat service counts as one address.",
       "fix": "Get a free key at {{keyPage}} ({{dailyQuota}} calls a day, no account) and add it to your app. Resets at midnight UTC."
     },
     {
@@ -301,8 +314,8 @@
       "symptom": "This key has been revoked.",
       "flag": "server",
       "state": "any",
-      "why": "A newer key was made for the same account or email; only the newest works.",
-      "fix": "Use the newest key, or make one more and update every app that holds the old one."
+      "why": "A newer key replaced it, it went unused for {{keyIdleDays}} days, or it was a free key issued before keys needed a confirmed email (4 October 2026).",
+      "fix": "Use your newest key, or get one at {{keyPage}} (we email you a link) and update every app that holds the old one."
     },
     {
       "symptom": "Daily quota of",
@@ -322,7 +335,7 @@
       "symptom": "fit_resume is a paid feature",
       "flag": "server",
       "state": "any",
-      "why": "Résumé fit scoring needs a paid key or a live Agent Pass.",
+      "why": "Résumé fit scoring needs a paid key, a live Agent Pass or the Agent plan.",
       "fix": "{{keyPage}} for a paid key, or {{passPage}} — search keeps working."
     },
     {

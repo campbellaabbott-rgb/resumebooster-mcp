@@ -9,9 +9,13 @@ Job search over employers' own hiring systems. Search with no key; a free key op
 - Tools: 15 — `search_jobs`, `get_job`, `get_jobs`, `check_jobs_open`, `check_apply_support`, `board_stats`, `employer_hiring_record`, `employer_growth`, `key_status`, `debug_search`, `search`, `fetch`, `fit_resume`, `request_application`, `application_status`
 - The how-to, per app, with a **Test the server** button: https://resumebooster.work/agents
 - Free key: https://resumebooster.work/data-api
-- One server, four names: `resumebooster-job-board` is what `initialize` answers, `resumebooster` is the install name in every block below, `Resume Booster` is the name you type into Claude's or ChatGPT's own dialog, and `work.resumebooster/jobs` is the name reserved for the MCP Registry (not published yet).
+- Listed in the official MCP Registry as `work.resumebooster/jobs`: https://registry.modelcontextprotocol.io/?q=work.resumebooster/jobs (the entry as the registry's API serves it: https://registry.modelcontextprotocol.io/v0/servers/work.resumebooster%2Fjobs/versions/latest)
+- Also on the site: the Ghost Job Index, the board's live measure of which postings are real (open roles, how old they are by the employer's own date, the takedowns it has logged), at https://resumebooster.work/ghost-job-index; and live ATS score benchmarks from the site's own résumé scans, at https://resumebooster.work/research/ats-score-benchmarks.
+- One server, four names: `resumebooster-job-board` is what `initialize` answers, `resumebooster` is the install name in every block below, `Resume Booster` is the name you type into Claude's or ChatGPT's own dialog, and `work.resumebooster/jobs` is its name in the official MCP Registry.
 
 A `https://resumebooster.work/jobs?job=<id>` link's `id` is the argument `get_job`, `fetch`, `check_apply_support` and `request_application` take.
+
+Two hiring systems on the job board are not handed on by this server or the data API: the U.S. federal job feed, whose terms forbid redistributing it as a data feed, and SmartRecruiters, withheld until SmartRecruiters (SAP) permits it. Their postings stay on the job board, where you can open them yourself.
 
 Claude, Claude Desktop and ChatGPT have no field for a key. They sign you in instead — but only while the server's sign-in service is switched on. When it is off, a tool that needs your account answers in words (no Connect card), and `board_stats`, `search_jobs`, `search` and `fetch` still answer. Today's state: press **Test the server** on https://resumebooster.work/agents, or run
 
@@ -30,7 +34,7 @@ which prints `"on"`, `"off"` or `"unknown"` — the same word the page shows (th
 | Paid or pass | `fit_resume` | The paid API tier, or a live pass on the key's account (https://resumebooster.work/agents/pass). |
 | Apply | `request_application`, `application_status` | A key linked to an account with an Agent plan or a live pass, and a mandate — see `key_status`. |
 
-The unkeyed allowance is 25 free calls a day per network address — an office, a home connection or a chat service's own servers count as one address, so from Claude or ChatGPT the number left can start lower because other people share it.
+The unkeyed allowance is 25 free calls a day per network address — an office or a home connection counts as one address. From ChatGPT each person has their own 25; from Claude, whose servers carry every user, calls come first from a pool of 500 a day that all Claude users share, then from the address's own 25.
 
 ## Install
 
@@ -49,7 +53,7 @@ Pick your app. Every block but Zed's works with no key on its first call (Zed as
 
 When sign-in is on — the first time Claude needs your account — to open a posting in full, to check a shortlist, or to apply — a **Connect** card appears in the chat. Click it, sign in to Resume Booster, press **Allow**, and Claude continues where it stopped.
 
-**How you know it worked:** Under **+ → Connectors**, Resume Booster is on. Ask "call board_stats": the answer names the number of open postings and a note that reads "unkeyed: N of 25 anonymous calls left today".
+**How you know it worked:** Under **+ → Connectors**, Resume Booster is on. Ask "call board_stats": the answer names the number of open postings and a note of the form "unkeyed: N of M anonymous calls left today", where M is the allowance that answered (from Claude, the pool every Claude user shares).
 
 ### ChatGPT (developer mode)
 
@@ -171,7 +175,7 @@ export RESUMEBOOSTER_KEY=<paste your key here>
 
 **How you know it worked:** If you used the mcp.json block, VS Code asks for the key at start — leave it empty (the link in step 1 declares no key, so it asks nothing). Either way, ask the chat "call board_stats" — the count and the unkeyed note come back.
 
-### More… (Gemini CLI, Codex CLI, Cline, Zed, Windsurf, anything else)
+### Other apps (Gemini CLI, Codex CLI, Cline, Zed, Windsurf, anything else)
 
 1. Pick your app below — each has its own block. Anything else that speaks MCP works too: it is one plain web address, and **Any client / curl** at the end shows the first message.
 2. Then ask your agent to call `board_stats`.
@@ -313,12 +317,12 @@ Symptoms are the server's own words, or a label the app's documentation prints (
 | Claude: a **Connect** card appears (while sign-in is on) | A tool needs your account. | Click it, sign in to Resume Booster, press **Allow**; Claude retries the call itself. |
 | Claude: "Couldn't reach the MCP server" or "Authorization with the MCP server failed" | The address was mistyped, `/mcp` was added to it, or (when sign-in is on) the sign-in could not finish. | Check the address is exactly `https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp`; press **Test the server** on https://resumebooster.work/agents; if the test says sign-in is on and the card still fails, remove the connector and add it again with **Sign in when needed** + **Register automatically**. |
 | Claude Code: `/mcp` shows `! Needs authentication` (while sign-in is on) | A tool that needs your account was called with no key, and the server asked for sign-in. | Type `/mcp` and follow the browser steps (2.1.186 or newer: `claude mcp login resumebooster`), or add a free key with `--header`. |
-| The unkeyed allowance is spent | Your network address used its 25 free calls today; an office or a chat service counts as one address. | Get a free key at https://resumebooster.work/data-api (1000 calls a day, no account) and add it to your app. Resets at midnight UTC. |
+| The unkeyed allowance is spent | Your network address used its free calls today; an office or a chat service counts as one address. | Get a free key at https://resumebooster.work/data-api (1000 calls a day, no account) and add it to your app. Resets at midnight UTC. |
 | That key is not recognised. | The key was cut off, or the header lacks `Bearer ` with the space. | The header must read `Authorization: Bearer rb_live_…`. A key is shown once; get a new one if lost (the old one stops working). |
-| This key has been revoked. | A newer key was made for the same account or email; only the newest works. | Use the newest key, or make one more and update every app that holds the old one. |
+| This key has been revoked. | A newer key replaced it, it went unused for 30 days, or it was a free key issued before keys needed a confirmed email (4 October 2026). | Use your newest key, or get one at https://resumebooster.work/data-api (we email you a link) and update every app that holds the old one. |
 | Daily quota of | The free key's day is spent. | Wait for midnight UTC; the unkeyed tools still answer; an Agent Pass raises the limit for its hours. |
 | requests/minute. | Too many calls in one minute. | Wait one minute. |
-| fit_resume is a paid feature | Résumé fit scoring needs a paid key or a live Agent Pass. | https://resumebooster.work/data-api for a paid key, or https://resumebooster.work/agents/pass — search keeps working. |
+| fit_resume is a paid feature | Résumé fit scoring needs a paid key, a live Agent Pass or the Agent plan. | https://resumebooster.work/data-api for a paid key, or https://resumebooster.work/agents/pass — search keeps working. |
 | The apply agent needs an active Agent plan or a live pass. | Applying is paid. | https://resumebooster.work/agents/pass (sign in first), or the Agent plan on the site. |
 | No agent mandate on this account. | The apply agent is not set up yet (the same answer names "Your agent is switched off." and "No resume on file" when that is the blocker). | Account → set up the apply agent: turn it on, choose countries and field, add the CV. The off switch always wins. |
 | The pass on this account is not live. | The pass ended, or its applications are used ("No applications left on this pass."). | Search keeps working; buy another pass when the clock ends. |
@@ -340,7 +344,7 @@ Every search you run travels to the server as the query you typed. A key is stor
 ## This repository
 
 - `mcp.config.json` is the only place a URL, tool name, cap, quota, host step or troubleshooting row is written. `npm run build` regenerates every other file; `npm test` fails if any generated file was edited by hand or the constants changed without a rebuild, validates each manifest against the schema its host publishes (copies under `schemas/`, fetched 2026-09-16), and checks that no generated file carries a placeholder inside an Authorization value.
-- The tool list, the host ids (the six above and the long tail) and the sign-in key are a mirror of the site's own (`resume-signal-pro/src/config/mcp-tools.ts` at `7266f38c`); when that changes, this file is re-synced and rebuilt.
+- The tool list, the host ids (the six above and the long tail) and the sign-in key are a mirror of the site's own (`resume-signal-pro/src/config/mcp-tools.ts` at `08089496`); when that changes, this file is re-synced and rebuilt.
 - Every vendor label in the steps above is quoted from the vendor's documentation on the date in [docs-snapshot.md](./docs-snapshot.md); a label that is not there is not published here.
 - `server.json` is the entry for the official MCP Registry.
 

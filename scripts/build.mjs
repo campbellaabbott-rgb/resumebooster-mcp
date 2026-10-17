@@ -40,8 +40,10 @@ const NAME = C.serverName;
 const URL = C.mcpUrl;
 const AS_URL = C.authorizationServerMetadataUrl;
 // The six switchboard hosts (the site's MCP_HOSTS, by id and order) and the
-// long tail under "More…" (the site's MCP_MORE_HOSTS). Both lists mirror the
-// site; the README prints them in that order.
+// long tail under the "Other apps" heading (the site's MCP_MORE_HOSTS). Both
+// id lists mirror the site; the README prints them in that order. The tail's
+// heading is this file's own label, never the site's "more" button text
+// (SEO-027: a published page does not print that button by name).
 const HOSTS = C.hosts;
 const MORE_HOSTS = C.moreHosts;
 const ALL_HOSTS = [...HOSTS, ...MORE_HOSTS];
@@ -67,8 +69,12 @@ const vscodeInsidersLink = `vscode-insiders:mcp/install?${encodeURIComponent(JSO
 // is README-only and labelled; the documented links are printed beside it.
 const vscodeBadgeLink = `https://insiders.vscode.dev/redirect?url=${encodeURIComponent(vscodeLink)}`;
 const vscodeBadgeImg = "https://img.shields.io/badge/VS_Code-Install_Server-0098FF?logo=visualstudiocode&logoColor=white";
-// No registry badge until the entry is published (project_public_data_api:
-// the registry entry is the owner's call, after the sign-in service is on).
+// The registry entry is published (C.registry: listed, with the date it was
+// published and the date that was last read off the registry's own API). The
+// README names it in prose with the registry's page and the entry's API
+// record, and carries no badge.
+// With C.registry.listed false, the README says the name is reserved and
+// links nothing (the test pins both directions).
 
 // --------------------------------------------------------------- manifests
 // PLAN §6(a) / §5.2: the header reads the key from the environment and
@@ -233,6 +239,7 @@ const FILL = {
   perAddressPerDay: String(C.anonCaps.perAddressPerDay),
   searchRows: String(C.anonCaps.searchRows),
   dailyQuota: String(C.freeKeyDailyQuota),
+  keyIdleDays: String(C.freeKeyIdleRevokeDays),
   keyPage: C.keyPage,
   passPage: C.passPage,
   jobsPage: C.jobsPage,
@@ -293,8 +300,8 @@ const HOST_BLOCKS = {
     block: ["json", windsurfJson],
     keyed: `With a free key, the same file names the variable and Windsurf fills it in (\`\${env:${ENV}}\` is resolved in \`headers\`), so the key never sits in the file:\n\n\`\`\`sh\n${exportLine}\n\`\`\`\n\n\`\`\`json\n${windsurfJsonKeyed}\n\`\`\``,
   },
-  // "More…" is the heading that introduces the long tail; its own steps are
-  // the intro, and the curl block belongs to the one client it describes.
+  // "Other apps" is the heading that introduces the long tail; its own steps
+  // are the intro, and the curl block belongs to the one client it describes.
   more: {},
   "gemini-cli": HOST_BLOCKS_GEMINI(),
   "codex-cli": HOST_BLOCKS_CODEX(),
@@ -341,7 +348,19 @@ const signInRule = `Claude, Claude Desktop and ChatGPT have no field for a key. 
 const signInReaderTail = `which prints \`"on"\`, \`"off"\` or \`"unknown"\` — the same word the page shows (the server reads the sign-in service's own metadata at \`${AS_URL}\` and caches the answer briefly).`;
 const signInParagraph = `${signInRule} Today's state: press **Test the server** on ${C.agentsPage}, or run\n\n\`\`\`sh\n${signInReader}\n\`\`\`\n\n${signInReaderTail}`;
 const verifyLine = `**Verify:** ask your agent to call \`board_stats\`. It answers with no key and says how many free calls are left today.`;
-const addressGloss = `${C.anonCaps.perAddressPerDay} free calls a day per network address — an office, a home connection or a chat service's own servers count as one address, so from Claude or ChatGPT the number left can start lower because other people share it.`;
+// The site's MCP_ADDRESS_GLOSS, word for word: a call from Claude's or
+// ChatGPT's published egress is counted first in that host's own allowance
+// (agent-mcp ANON_HOST_POOL_PER_DAY) — per person from ChatGPT, one pool
+// from Claude — and only then in the address's.
+const addressGloss = `${C.anonCaps.perAddressPerDay} free calls a day per network address — an office or a home connection counts as one address. From ChatGPT each person has their own ${C.anonCaps.perAddressPerDay}; from Claude, whose servers carry every user, calls come first from a pool of ${C.anonCaps.hostPoolPerDay} a day that all Claude users share, then from the address's own ${C.anonCaps.perAddressPerDay}.`;
+// The registry, said once with its links while the entry is listed, and as a
+// reserved name (no link) when it is not.
+const registryBullet = C.registry?.listed
+  ? `- Listed in the official MCP Registry as \`${C.registryName}\`: ${C.registry.listingUrl} (the entry as the registry's API serves it: ${C.registry.recordUrl})\n`
+  : "";
+const registryName = C.registry?.listed
+  ? `\`${C.registryName}\` is its name in the official MCP Registry`
+  : `\`${C.registryName}\` is the name reserved for the MCP Registry (not published yet)`;
 const troubleshootingTable = [
   `| What you see | Why | What to do |`,
   `|---|---|---|`,
@@ -360,9 +379,12 @@ ${verifyLine}
 - Tools: ${C.tools.length} — ${list(C.tools.map((t) => t.name))}
 - The how-to, per app, with a **Test the server** button: ${C.agentsPage}
 - Free key: ${C.keyPage}
-- One server, four names: \`${C.serverInfoName}\` is what \`initialize\` answers, \`${NAME}\` is the install name in every block below, \`${C.connectorName}\` is the name you type into Claude's or ChatGPT's own dialog, and \`${C.registryName}\` is the name reserved for the MCP Registry (not published yet).
+${registryBullet}- Also on the site: the Ghost Job Index, the board's live measure of which postings are real (open roles, how old they are by the employer's own date, the takedowns it has logged), at ${C.ghostJobIndexPage}; and live ATS score benchmarks from the site's own résumé scans, at ${C.atsBenchmarksPage}.
+- One server, four names: \`${C.serverInfoName}\` is what \`initialize\` answers, \`${NAME}\` is the install name in every block below, \`${C.connectorName}\` is the name you type into Claude's or ChatGPT's own dialog, and ${registryName}.
 
 ${jobIdSentence}
+
+${C.withheldNote}
 
 ${signInParagraph}
 
@@ -480,6 +502,8 @@ Paid or pass: ${list(PAID)}. Apply (account with a mandate): ${list(APPLY)}.
 
 ${jobIdSentence}
 
+${C.withheldNote}
+
 Do not invent a posting, a salary or an employer fact the tools did not return. \`check_jobs_open\` re-verifies a shortlist cheaply before \`get_jobs\`. Never call \`request_application\` without the person's explicit yes for that job id.
 
 ## If a tool refuses
@@ -505,7 +529,7 @@ description: Connect the ${C.displayName} MCP server with a free key. Use when t
 
 This plugin's \`.mcp.json\` registers \`${NAME}\` at \`${URL}\` and reads the key from \`${ENV}\` — unset, it sends no key. ${unkeyedSentence} Everything else needs a free key.
 
-1. Tell the person to open ${C.keyPage} and get a key (it starts with \`${C.keyPrefix}\`). Do not ask them to paste it into the chat; ask them to put it in their shell environment:
+1. Tell the person to open ${C.keyPage} and get a key (it starts with \`${C.keyPrefix}\`) — the page emails them a single-use link, and the page that link opens shows the key once. Do not ask them to paste it into the chat; ask them to put it in their shell environment:
 
        ${exportLine}
 

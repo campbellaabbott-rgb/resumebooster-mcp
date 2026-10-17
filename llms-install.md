@@ -119,17 +119,19 @@ Paid or pass: `fit_resume`. Apply (account with a mandate): `request_application
 
 A `https://resumebooster.work/jobs?job=<id>` link's `id` is the argument `get_job`, `fetch`, `check_apply_support` and `request_application` take.
 
+Two hiring systems on the job board are not handed on by this server or the data API: the U.S. federal job feed, whose terms forbid redistributing it as a data feed, and SmartRecruiters, withheld until SmartRecruiters (SAP) permits it. Their postings stay on the job board, where you can open them yourself.
+
 Do not invent a posting, a salary or an employer fact the tools did not return. `check_jobs_open` re-verifies a shortlist cheaply before `get_jobs`. Never call `request_application` without the person's explicit yes for that job id.
 
 ## If a tool refuses
 
 - "Sign-in through this server is not switched on yet, so this tool needs a key." (while sign-in is off) — The tool needs your account, and sign-in from chat apps is not switched on today. Search, board statistics and full postings still work with no key. To use every tool, connect from Claude Code, Cursor or VS Code with a free key (https://resumebooster.work/data-api).
-- "The unkeyed allowance is spent" — Your network address used its 25 free calls today; an office or a chat service counts as one address. Get a free key at https://resumebooster.work/data-api (1000 calls a day, no account) and add it to your app. Resets at midnight UTC.
+- "The unkeyed allowance is spent" — Your network address used its free calls today; an office or a chat service counts as one address. Get a free key at https://resumebooster.work/data-api (1000 calls a day, no account) and add it to your app. Resets at midnight UTC.
 - "That key is not recognised." — The key was cut off, or the header lacks `Bearer ` with the space. The header must read `Authorization: Bearer rb_live_…`. A key is shown once; get a new one if lost (the old one stops working).
-- "This key has been revoked." — A newer key was made for the same account or email; only the newest works. Use the newest key, or make one more and update every app that holds the old one.
+- "This key has been revoked." — A newer key replaced it, it went unused for 30 days, or it was a free key issued before keys needed a confirmed email (4 October 2026). Use your newest key, or get one at https://resumebooster.work/data-api (we email you a link) and update every app that holds the old one.
 - "Daily quota of" — The free key's day is spent. Wait for midnight UTC; the unkeyed tools still answer; an Agent Pass raises the limit for its hours.
 - "requests/minute." — Too many calls in one minute. Wait one minute.
-- "fit_resume is a paid feature" — Résumé fit scoring needs a paid key or a live Agent Pass. https://resumebooster.work/data-api for a paid key, or https://resumebooster.work/agents/pass — search keeps working.
+- "fit_resume is a paid feature" — Résumé fit scoring needs a paid key, a live Agent Pass or the Agent plan. https://resumebooster.work/data-api for a paid key, or https://resumebooster.work/agents/pass — search keeps working.
 - "The apply agent needs an active Agent plan or a live pass." — Applying is paid. https://resumebooster.work/agents/pass (sign in first), or the Agent plan on the site.
 - "No agent mandate on this account." — The apply agent is not set up yet (the same answer names "Your agent is switched off." and "No resume on file" when that is the blocker). Account → set up the apply agent: turn it on, choose countries and field, add the CV. The off switch always wins.
 - "The pass on this account is not live." — The pass ended, or its applications are used ("No applications left on this pass."). Search keeps working; buy another pass when the clock ends.

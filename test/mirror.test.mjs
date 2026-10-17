@@ -119,7 +119,17 @@ test("the README's links, count and tool names come from the constants", () => {
   // install-links page (docs-snapshot.md), so the README carries neither.
   assert.ok(!readme.includes("cursor.com/install-mcp"), "an undocumented cursor web link");
   assert.ok(!readme.includes("cursor.com/deeplink/mcp-install"), "an undocumented cursor badge");
-  assert.ok(!readme.includes("registry.modelcontextprotocol.io"), "a registry badge over an unpublished entry is a claim");
+  // The registry line follows C.registry.listed both ways: a listed entry is
+  // named with its two links and never as "not published yet"; an unlisted
+  // one is a reserved name and links nothing (a link over an unpublished
+  // entry is a claim). The teeth for the unlisted side are below.
+  if (C.registry.listed) {
+    assert.ok(readme.includes(`Listed in the official MCP Registry as \`${C.registryName}\`: ${C.registry.listingUrl}`), "the listing is named with the registry's page");
+    assert.ok(readme.includes(C.registry.recordUrl), "the entry's API record is linked");
+    assert.ok(!readme.includes("not published yet"), "a listed entry is never called unpublished");
+  } else {
+    assert.ok(!readme.includes("registry.modelcontextprotocol.io"), "a registry link over an unpublished entry is a claim");
+  }
   assert.deepEqual(JSON.parse(Buffer.from(b64, "base64").toString()), { url: C.mcpUrl }, "the deep link's config holds only the URL");
   const vscode = `vscode:mcp/install?${encodeURIComponent(JSON.stringify({ name: C.serverName, type: "http", url: C.mcpUrl }))}`;
   assert.ok(readme.includes(vscode), "vscode link");
@@ -155,6 +165,37 @@ test("the README's links, count and tool names come from the constants", () => {
   }
 });
 
+test("the registry links are the registry's own forms for this name, dated", () => {
+  assert.equal(typeof C.registry.listed, "boolean");
+  assert.equal(C.registry.listingUrl, `https://registry.modelcontextprotocol.io/?q=${C.registryName}`, "the registry's page, its search box filled with the name (the page reads ?q=)");
+  assert.equal(C.registry.recordUrl, `https://registry.modelcontextprotocol.io/v0/servers/${encodeURIComponent(C.registryName)}/versions/latest`, "the v0 API's record path for the name");
+  assert.match(C.registry.publishedAt, /^\d{4}-\d{2}-\d{2}$/);
+  assert.match(C.registry.checkedAt, /^\d{4}-\d{2}-\d{2}$/);
+  assert.ok(C.registry.checkedAt >= C.registry.publishedAt, "the entry was read after it was published");
+});
+
+test("teeth: with the entry unlisted, the README calls the name reserved and links no registry page", () => {
+  const dir = scratch();
+  try {
+    const cfg = readJson("mcp.config.json", dir);
+    cfg.registry.listed = false;
+    writeFileSync(join(dir, "mcp.config.json"), JSON.stringify(cfg, null, 2) + "\n");
+    const r = spawnSync(process.execPath, [join(ROOT, "scripts", "build.mjs")], { env: { ...process.env, BUILD_ROOT: dir }, encoding: "utf8" });
+    assert.equal(r.status, 0, r.stderr);
+    const readme = readText("README.md", dir);
+    assert.ok(readme.includes(`\`${C.registryName}\` is the name reserved for the MCP Registry (not published yet)`));
+    assert.ok(!readme.includes("registry.modelcontextprotocol.io"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("no generated file prints the site's long-tail button text as a heading or a name (SEO-027)", async () => {
+  const { GENERATED } = await import("../scripts/build.mjs");
+  for (const f of GENERATED) assert.ok(!/More…|More\.\.\./.test(readText(f)), `${f} prints the "More…" button text`);
+  assert.ok(![...C.hosts, ...C.moreHosts].some((h) => /^More\b/.test(h.name)), "a host is named More…");
+});
+
 test("every generated markdown file spells no count, no price and no takedown-as-hire (project_claim_drift)", async () => {
   const { GENERATED } = await import("../scripts/build.mjs");
   const md = GENERATED.filter((f) => f.endsWith(".md"));
@@ -165,7 +206,7 @@ test("every generated markdown file spells no count, no price and no takedown-as
   // the only digits allowed beside those nouns are the constants' values.
   // "one" is an article ("one page of", "one call") and is not judged.
   const spelledCount = /\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty)\b(?=[^.\n]{0,40}\b(?:tools?|need no key|calls?|rows?|ids?)\b)/i;
-  const allowedDigits = new Set([C.tools.length, C.anonTools.length, C.anonCaps.perAddressPerDay, C.anonCaps.globalPerDay, C.anonCaps.searchRows, C.freeKeyDailyQuota, C.anonAddressHashRetentionDays].map(String));
+  const allowedDigits = new Set([C.tools.length, C.anonTools.length, C.anonCaps.perAddressPerDay, C.anonCaps.hostPoolPerDay, C.anonCaps.globalPerDay, C.anonCaps.searchRows, C.freeKeyDailyQuota, C.anonAddressHashRetentionDays, C.freeKeyIdleRevokeDays].map(String));
   for (const f of md.filter((x) => x !== "docs-snapshot.md")) {
     const text = readText(f);
     assert.ok(!spelledCount.test(text), `${f} spells a count in words: ${spelledCount.exec(text)?.[0]}`);
@@ -473,7 +514,19 @@ test(
     const caps = ts.match(/MCP_ANON_CAPS\s*=\s*\{([^}]*)\}/);
     assert.ok(caps, "MCP_ANON_CAPS not found");
     const num = (k) => Number(caps[1].match(new RegExp(`${k}:\\s*(\\d+)`))[1]);
-    assert.deepEqual(C.anonCaps, { perAddressPerDay: num("perAddressPerDay"), globalPerDay: num("globalPerDay"), searchRows: num("searchRows") });
+    assert.deepEqual(C.anonCaps, { perAddressPerDay: num("perAddressPerDay"), hostPoolPerDay: num("hostPoolPerDay"), globalPerDay: num("globalPerDay"), searchRows: num("searchRows") });
+
+    // The address gloss is the site's MCP_ADDRESS_GLOSS with its caps filled in.
+    const gloss = ts.match(/MCP_ADDRESS_GLOSS\s*=\s*`([^`]+)`/);
+    assert.ok(gloss, "MCP_ADDRESS_GLOSS not found");
+    const glossText = gloss[1].replace(/\$\{MCP_ANON_CAPS\.(\w+)\}/g, (_, k) => String(C.anonCaps[k]));
+    assert.ok(!glossText.includes("${"), "MCP_ADDRESS_GLOSS reads a constant this mirror does not carry");
+    assert.ok(readText("README.md").includes(`The unkeyed allowance is ${glossText}`), "the README's address gloss drifted from the site's MCP_ADDRESS_GLOSS");
+
+    // The withheld-systems note is the site's MCP_WITHHELD_NOTE, word for word.
+    const withheld = ts.match(/MCP_WITHHELD_NOTE\s*=\s*"([^"]+)"/);
+    assert.ok(withheld, "MCP_WITHHELD_NOTE not found");
+    assert.equal(C.withheldNote, withheld[1], "withheldNote drifted from the site's MCP_WITHHELD_NOTE");
 
     const quota = ts.match(/MCP_FREE_KEY_DAILY_QUOTA\s*=\s*(\d+)/);
     assert.ok(quota, "MCP_FREE_KEY_DAILY_QUOTA not found");
@@ -524,6 +577,9 @@ test(
     assert.ok(serverSrc.includes(`name: "${C.serverInfoName}",`), "serverInfoName drifted from SERVER_INFO.name — the README's verify line would name a server that does not exist");
     // The unkeyed note the verify lines quote is the server's own sentence shape.
     assert.ok(serverSrc.includes("anonymous calls left today"), "the unkeyed note's wording moved in index.ts — re-word the verify lines");
+    // The Claude pool the address gloss names, and the idle-key revocation the key-revoked row names, are the server's.
+    assert.ok(serverSrc.includes(`const ANON_HOST_POOL_PER_DAY = ${C.anonCaps.hostPoolPerDay};`), "hostPoolPerDay drifted from agent-mcp's ANON_HOST_POOL_PER_DAY");
+    assert.ok(serverSrc.includes(`it went unused for ${C.freeKeyIdleRevokeDays} days`), "freeKeyIdleRevokeDays drifted from agent-mcp's revoked-key answer");
     assert.ok(C.hosts.find((h) => h.id === "claude").verify.includes("anonymous calls left today"), "the Claude verify line quotes the server's note");
     // The connector name and the protocol revision mirror the site's constants.
     const connector = ts.match(/MCP_CONNECTOR_NAME\s*=\s*"([^"]+)"/);
