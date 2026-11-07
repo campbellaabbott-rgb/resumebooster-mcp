@@ -57,8 +57,11 @@ test("mcp.config.json is internally consistent", () => {
   for (const t of C.tools) assert.ok(["read", "paid", "apply"].includes(t.tier), t.name);
   for (const a of C.anonTools) assert.ok(names.includes(a), `unkeyed tool ${a} is not a tool`);
   for (const a of C.anonTools) assert.equal(C.tools.find((t) => t.name === a).tier, "read", "an unkeyed tool is a read tool");
-  assert.ok(C.anonCaps.perAddressPerDay < C.anonCaps.globalPerDay);
-  assert.ok(C.freeKeyDailyQuota > C.anonCaps.perAddressPerDay, "a key must raise the cap or the key page lies");
+  assert.ok(!C.tools.some((t) => t.tier === "apply"), "the apply tier is retired on the server (RETIRED_TOOLS); build.mjs refuses to print it");
+  assert.ok(C.anonCaps.otherPerConnection < C.anonCaps.shares.other && C.anonCaps.shares.other < C.anonCaps.overallPerDay);
+  assert.ok(C.anonCaps.chatgptPerPerson < C.anonCaps.shares.chatgpt);
+  assert.ok(C.freeKeyDailyQuota > C.anonCaps.otherPerConnection && C.freeKeyDailyQuota > C.anonCaps.chatgptPerPerson, "a key must raise the cap or the key page lies");
+  assert.ok(C.fitFreePerDay > 0 && C.fitFullPerDay > C.fitFreePerDay, "a paid plan must raise the fit allowance");
   assert.ok(!/^(api[_-]?key|token|secret|password|auth)/i.test(C.keyEnvVar), "Claude Code reads credential-named env vars as empty in remote headers");
 });
 
@@ -137,10 +140,15 @@ test("the README's links, count and tool names come from the constants", () => {
   assert.ok(readme.includes(`Tools: ${C.tools.length} —`), "the count is the list's length");
   for (const t of C.tools) assert.ok(readme.includes(`\`${t.name}\``), `README names ${t.name}`);
   for (const a of C.anonTools) assert.ok(readme.includes(a), `README names unkeyed ${a}`);
-  assert.ok(readme.includes(`${C.anonCaps.perAddressPerDay} calls a day per network address`), "the cap names the network address, never a bare 'address'");
+  // The unkeyed row prints the split the site's developer disclosure prints,
+  // from the mirrored MCP_ANON_CAPS (never its legacy per-address names).
+  assert.ok(readme.includes(`${C.anonCaps.otherPerConnection} per internet connection (an IPv4 address or an IPv6 /64)`), "the per-connection cap says what a connection is, never a bare 'address'");
   assert.ok(!/calls a day per address\b/.test(readme), "'per address' is undefined for a reader");
-  assert.ok(readme.includes(`${C.anonCaps.perAddressPerDay} free calls a day per network address`), "the address gloss");
+  assert.ok(readme.includes(`Claude's users share ${C.anonCaps.shares.claude}; ChatGPT's share ${C.anonCaps.shares.chatgpt} (${C.anonCaps.chatgptPerPerson} for each person`), "the platform split");
+  assert.ok(readme.includes(`${C.anonCaps.overallPerDay} a day in all`), "the overall day");
+  assert.ok(readme.includes(`\n${C.addressGloss}\n`), "the site's address gloss, word for word, as its own paragraph");
   assert.ok(readme.includes(`${C.freeKeyDailyQuota} calls a day`));
+  assert.ok(readme.includes(`${C.fitFreePerDay} scorings a day; ${C.fitFullPerDay} on an account with a paid plan`), "the fit allowance");
   assert.ok(readme.includes(`/plugin marketplace add ${C.repoOwner}/${C.repoName}`));
   assert.ok(readme.includes(`gemini extensions install ${C.repoUrl}`));
   assert.ok(readme.includes(`bearer_token_env_var = "${C.keyEnvVar}"`));
@@ -206,7 +214,11 @@ test("every generated markdown file spells no count, no price and no takedown-as
   // the only digits allowed beside those nouns are the constants' values.
   // "one" is an article ("one page of", "one call") and is not judged.
   const spelledCount = /\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty)\b(?=[^.\n]{0,40}\b(?:tools?|need no key|calls?|rows?|ids?)\b)/i;
-  const allowedDigits = new Set([C.tools.length, C.anonTools.length, C.anonCaps.perAddressPerDay, C.anonCaps.hostPoolPerDay, C.anonCaps.globalPerDay, C.anonCaps.searchRows, C.freeKeyDailyQuota, C.anonAddressHashRetentionDays, C.freeKeyIdleRevokeDays].map(String));
+  // Named caps only, not every number nested in anonCaps: that set holds 15
+  // (perMinute.other), which is also the old tool count, so a stale "15 tools"
+  // would pass. The build prints searchRows; the other three are the fields
+  // this list named before the caps became nested (2026-11-07).
+  const allowedDigits = new Set([C.tools.length, C.anonTools.length, C.anonCaps.perAddressPerDay, C.anonCaps.hostPoolPerDay, C.anonCaps.globalPerDay, C.anonCaps.searchRows, C.freeKeyDailyQuota, C.fitFreePerDay, C.fitFullPerDay, C.anonAddressHashRetentionDays, C.freeKeyIdleRevokeDays].map(String));
   for (const f of md.filter((x) => x !== "docs-snapshot.md")) {
     const text = readText(f);
     assert.ok(!spelledCount.test(text), `${f} spells a count in words: ${spelledCount.exec(text)?.[0]}`);
@@ -469,6 +481,33 @@ test("teeth: a placeholder pasted into a keyed block, and a hand-typed 'Mixed', 
 // preceded by `:` — a URL's `https://` stays), so a tool entry written in a
 // trailing comment can neither satisfy nor fail the parse.
 const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:\\])\/\/.*$/gm, "$1");
+// The object a comment-stripped `const NAME = { … }` declares, as data: the
+// braces are matched, numeric separators dropped, keys quoted and trailing
+// commas removed, then JSON.parse. Anything that is not a plain literal (a
+// computed value, a spread, a call) fails the parse and names the constant,
+// so a reshaped constant on the site is re-anchored, never half-read. The
+// site's MCP_ANON_CAPS nests objects, which a `\{([^}]*)\}` regex cannot read.
+const objectLiteral = (src, name) => {
+  const at = src.search(new RegExp(`\\b${name}\\s*(?::[^=]*)?=\\s*\\{`));
+  if (at < 0) return null;
+  const start = src.indexOf("{", at);
+  let depth = 0;
+  let end = -1;
+  for (let i = start; i < src.length && end < 0; i++) {
+    if (src[i] === "{") depth++;
+    else if (src[i] === "}" && --depth === 0) end = i;
+  }
+  if (end < 0) return null;
+  const body = src.slice(start, end + 1)
+    .replace(/(\d)_(?=\d)/g, "$1")
+    .replace(/([{,]\s*)([A-Za-z_$][\w$]*)\s*:/g, '$1"$2":')
+    .replace(/,(\s*[}\]])/g, "$1");
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new Error(`${name} is not a plain object literal — RE-ANCHOR the mirror's reader`);
+  }
+};
 
 test("importing the build script writes nothing: the write loop runs only when it is the entry point", async () => {
   const before = Object.fromEntries(["README.md", ".mcp.json"].map((f) => [f, statSync(join(ROOT, f)).mtimeMs]));
@@ -485,6 +524,13 @@ test("the comment stripper drops a trailing comment on a code line and keeps a U
   assert.ok(!out.includes("ghost"), "a tool entry in a trailing comment must not survive");
   assert.ok(out.includes('name: "real", tier: "read"'));
   assert.ok(out.includes("https://example.test/x"), "a URL's // is not a comment");
+});
+
+test("the object-literal reader takes a nested constant with separators and refuses a computed one", () => {
+  const src = stripComments("export const X = {\n  /** the day */\n  overall: 20_000,\n  shares: { claude: 10_000, other: 4_000 }, // split\n  share: 0.05,\n} as const;\nconst Z = { y: 1 };");
+  assert.deepEqual(objectLiteral(src, "X"), { overall: 20000, shares: { claude: 10000, other: 4000 }, share: 0.05 });
+  assert.equal(objectLiteral(src, "NOPE"), null);
+  assert.throws(() => objectLiteral("const Y = { a: B * 2 };", "Y"), /RE-ANCHOR/);
 });
 
 const siblingDir = process.env.RESUME_SIGNAL_PRO_DIR ?? join(ROOT, "..", "resume-signal-pro");
@@ -511,17 +557,27 @@ test(
     assert.ok(anon, "MCP_ANON_TOOL_NAMES not found");
     assert.deepEqual(C.anonTools, [...anon[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]));
 
-    const caps = ts.match(/MCP_ANON_CAPS\s*=\s*\{([^}]*)\}/);
+    // The whole MCP_ANON_CAPS, as the site's own reverse check
+    // (the-install-files-point-at-this-server.test.ts) compares it.
+    const caps = objectLiteral(ts, "MCP_ANON_CAPS");
     assert.ok(caps, "MCP_ANON_CAPS not found");
-    const num = (k) => Number(caps[1].match(new RegExp(`${k}:\\s*(\\d+)`))[1]);
-    assert.deepEqual(C.anonCaps, { perAddressPerDay: num("perAddressPerDay"), hostPoolPerDay: num("hostPoolPerDay"), globalPerDay: num("globalPerDay"), searchRows: num("searchRows") });
+    assert.deepEqual(C.anonCaps, caps, "anonCaps drifted from the site's MCP_ANON_CAPS — re-sync mcp.config.json and rebuild");
 
-    // The address gloss is the site's MCP_ADDRESS_GLOSS with its caps filled in.
-    const gloss = ts.match(/MCP_ADDRESS_GLOSS\s*=\s*`([^`]+)`/);
+    // The address gloss is the site's MCP_ADDRESS_GLOSS, word for word (a
+    // template's ${MCP_ANON_CAPS.path} filled from the mirror, if it has any).
+    const gloss = ts.match(/MCP_ADDRESS_GLOSS\s*=\s*(?:"([^"]+)"|`([^`]+)`)/);
     assert.ok(gloss, "MCP_ADDRESS_GLOSS not found");
-    const glossText = gloss[1].replace(/\$\{MCP_ANON_CAPS\.(\w+)\}/g, (_, k) => String(C.anonCaps[k]));
-    assert.ok(!glossText.includes("${"), "MCP_ADDRESS_GLOSS reads a constant this mirror does not carry");
-    assert.ok(readText("README.md").includes(`The unkeyed allowance is ${glossText}`), "the README's address gloss drifted from the site's MCP_ADDRESS_GLOSS");
+    const glossText = (gloss[1] ?? gloss[2]).replace(/\$\{MCP_ANON_CAPS\.([\w.]+)\}/g, (_, p) => String(p.split(".").reduce((o, k) => o?.[k], C.anonCaps)));
+    assert.ok(!glossText.includes("${") && !glossText.includes("undefined"), "MCP_ADDRESS_GLOSS reads a constant this mirror does not carry");
+    assert.equal(C.addressGloss, glossText, "addressGloss drifted from the site's MCP_ADDRESS_GLOSS");
+    assert.ok(readText("README.md").includes(glossText), "the README's address gloss drifted from the site's MCP_ADDRESS_GLOSS");
+
+    // The fit allowance the tier table and the fit rows print.
+    const fitFree = ts.match(/MCP_FIT_FREE_PER_DAY\s*=\s*([\d_]+)/);
+    const fitFull = ts.match(/MCP_FIT_FULL_PER_DAY\s*=\s*([\d_]+)/);
+    assert.ok(fitFree && fitFull, "MCP_FIT_FREE_PER_DAY / MCP_FIT_FULL_PER_DAY not found");
+    assert.equal(C.fitFreePerDay, Number(fitFree[1].replace(/_/g, "")), "fitFreePerDay drifted from the site's MCP_FIT_FREE_PER_DAY");
+    assert.equal(C.fitFullPerDay, Number(fitFull[1].replace(/_/g, "")), "fitFullPerDay drifted from the site's MCP_FIT_FULL_PER_DAY");
 
     // The withheld-systems note is the site's MCP_WITHHELD_NOTE, word for word.
     const withheld = ts.match(/MCP_WITHHELD_NOTE\s*=\s*"([^"]+)"/);
@@ -575,12 +631,31 @@ test(
     const fnDir = join(siblingDir, "supabase", "functions", "agent-mcp");
     const serverSrc = ["index.ts", "oauth.ts"].map((n) => stripComments(readFileSync(join(fnDir, n), "utf8"))).join("\n");
     assert.ok(serverSrc.includes(`name: "${C.serverInfoName}",`), "serverInfoName drifted from SERVER_INFO.name — the README's verify line would name a server that does not exist");
-    // The unkeyed note the verify lines quote is the server's own sentence shape.
-    assert.ok(serverSrc.includes("anonymous calls left today"), "the unkeyed note's wording moved in index.ts — re-word the verify lines");
-    // The Claude pool the address gloss names, and the idle-key revocation the key-revoked row names, are the server's.
-    assert.ok(serverSrc.includes(`const ANON_HOST_POOL_PER_DAY = ${C.anonCaps.hostPoolPerDay};`), "hostPoolPerDay drifted from agent-mcp's ANON_HOST_POOL_PER_DAY");
+    // The keyless note the Claude verify line quotes is the server's own
+    // sentence shape (the anchor the site's first-call guard uses), and
+    // board_stats's note is the one the verify lines lean on.
+    assert.ok(serverSrc.includes("keyless: ${bucketLeft} of ${d.bucket_cap") && serverSrc.includes("${what} left today") && serverSrc.includes(': "lookups";'), "the keyless note's wording moved in index.ts — re-word the verify lines");
+    assert.ok(C.hosts.find((h) => h.id === "claude").verify.includes("note begins \"keyless:\" and says how many free lookups are left today"), "the Claude verify line quotes the server's note");
+    assert.ok(serverSrc.includes("board_stats is never counted against the keyless allowance."), "board_stats's keyless note moved — re-word the verify line and the Claude Code step");
+    // The unkeyed tier and the retired apply tools are the server's own lists.
+    const listIn = (name) => {
+      const m = serverSrc.match(new RegExp(`const ${name}[^=]*=\\s*\\[([^\\]]*)\\]`));
+      assert.ok(m, `${name} not found in agent-mcp — RE-ANCHOR`);
+      return [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+    };
+    assert.deepEqual(C.anonTools, listIn("ANON_TOOLS"), "anonTools drifted from agent-mcp's ANON_TOOLS");
+    for (const n of listIn("RETIRED_TOOLS")) {
+      assert.ok(!C.tools.some((t) => t.name === n), `${n} is retired on the server (RETIRED_TOOLS) but listed here`);
+      for (const f of PUBLISHED()) assert.ok(!new RegExp(`\\b${n}\\b`).test(readText(f)), `${f} names ${n}, which the server has retired`);
+    }
+    // The allowance the tier table prints is the server's ANON_ALLOWANCE
+    // (allowance.ts), field for field, wherever the mirror carries the field.
+    const allowance = objectLiteral(stripComments(readFileSync(join(fnDir, "allowance.ts"), "utf8")), "ANON_ALLOWANCE");
+    assert.ok(allowance, "ANON_ALLOWANCE not found in agent-mcp/allowance.ts — RE-ANCHOR");
+    for (const k of ["overallPerDay", "shares", "chatgptPerPerson", "chatgptNoSubject", "otherPerConnection", "perMinute", "forms", "searchRows", "maxOffset"]) assert.ok(k in allowance, `ANON_ALLOWANCE has no ${k}, which the README prints`);
+    for (const k of Object.keys(C.anonCaps).filter((x) => x in allowance)) assert.deepEqual(C.anonCaps[k], allowance[k], `anonCaps.${k} drifted from agent-mcp's ANON_ALLOWANCE.${k}`);
+    // The idle-key revocation the key-revoked row names is the server's.
     assert.ok(serverSrc.includes(`it went unused for ${C.freeKeyIdleRevokeDays} days`), "freeKeyIdleRevokeDays drifted from agent-mcp's revoked-key answer");
-    assert.ok(C.hosts.find((h) => h.id === "claude").verify.includes("anonymous calls left today"), "the Claude verify line quotes the server's note");
     // The connector name and the protocol revision mirror the site's constants.
     const connector = ts.match(/MCP_CONNECTOR_NAME\s*=\s*"([^"]+)"/);
     const protocol = ts.match(/MCP_PROTOCOL_VERSION\s*=\s*"([^"]+)"/);

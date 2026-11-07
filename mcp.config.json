@@ -39,8 +39,8 @@
   "authorizationServerMetadataUrl": "https://bwhdazbotpblihdxcmho.supabase.co/.well-known/oauth-authorization-server/auth/v1",
   "mirror": {
     "of": "resume-signal-pro/src/config/mcp-tools.ts",
-    "at": "08089496",
-    "note": "The last commit on the site's main that changed mcp-tools.ts (read at main 15baa8af, 2026-10-17; the live agent-mcp answers x-fn-build agent-mcp.2026-10-09.71, the build in that tree). hosts[].id order, signInMetaKey, anonCaps (with the Claude pool), withheldNote and the key-revoked, fit-paid and allowance-spent rows follow it; re-stamp `at` when that file changes"
+    "at": "1ea46d4c",
+    "note": "Copied at the site's main 1ea46d4c (2026-11-06); the last commit there that changed mcp-tools.ts is 21381bae (2026-11-01, the read tier makes no key claim), and the live agent-mcp answers x-fn-build agent-mcp.2026-11-03.1, the build in that tree (read 2026-11-07). The wave-4 tier follows it: apply_myself is a tool, the apply agent's tools are retired (the server's RETIRED_TOOLS, listed to nobody), every read tool but key_status and debug_search answers with no key, anonCaps is the whole MCP_ANON_CAPS (the allowance split by platform; perAddressPerDay, hostPoolPerDay and globalPerDay are the site's legacy names, kept there for its prerender and read by nothing here), fit_resume is a confirmed free key's daily allowance (fitFreePerDay, fitFullPerDay), and addressGloss is the site's count-free MCP_ADDRESS_GLOSS word for word. hosts[].id order, signInMetaKey, withheldNote and the server-string rows follow it; re-stamp `at` when that file changes"
   },
   "tools": [
     {
@@ -60,7 +60,7 @@
       "tier": "read"
     },
     {
-      "name": "check_apply_support",
+      "name": "apply_myself",
       "tier": "read"
     },
     {
@@ -94,30 +94,64 @@
     {
       "name": "fit_resume",
       "tier": "paid"
-    },
-    {
-      "name": "request_application",
-      "tier": "apply"
-    },
-    {
-      "name": "application_status",
-      "tier": "apply"
     }
   ],
   "anonTools": [
     "board_stats",
     "search_jobs",
     "search",
-    "fetch"
+    "fetch",
+    "get_job",
+    "get_jobs",
+    "check_jobs_open",
+    "employer_hiring_record",
+    "employer_growth",
+    "apply_myself"
   ],
   "anonCaps": {
-    "perAddressPerDay": 25,
-    "hostPoolPerDay": 500,
-    "globalPerDay": 2000,
-    "searchRows": 10
+    "overallPerDay": 20000,
+    "shares": {
+      "claude": 10000,
+      "chatgpt": 6000,
+      "other": 4000
+    },
+    "chatgptPerPerson": 200,
+    "chatgptNoSubject": 2000,
+    "otherPerConnection": 100,
+    "perMinute": {
+      "overall": 60,
+      "claude": 30,
+      "chatgpt": 20,
+      "other": 15,
+      "forms": 20
+    },
+    "forms": {
+      "perBucket": 100,
+      "pool": 2000,
+      "overall": 5000,
+      "shares": {
+        "claude": 2000,
+        "chatgpt": 2000,
+        "other": 1000
+      },
+      "perMinute": {
+        "claude": 10,
+        "chatgpt": 6,
+        "other": 4
+      }
+    },
+    "searchRows": 10,
+    "maxOffset": 200,
+    "checkJobsOpenIds": 50,
+    "perAddressPerDay": 100,
+    "hostPoolPerDay": 10000,
+    "globalPerDay": 20000
   },
   "freeKeyDailyQuota": 1000,
+  "fitFreePerDay": 25,
+  "fitFullPerDay": 1000,
   "withheldNote": "Two hiring systems on the job board are not handed on by this server or the data API: the U.S. federal job feed, whose terms forbid redistributing it as a data feed, and SmartRecruiters, withheld until SmartRecruiters (SAP) permits it. Their postings stay on the job board, where you can open them yourself.",
+  "addressGloss": "Free with no key and no account, within a daily allowance that resets at midnight UTC; every answer says how many free calls are left. Claude's servers carry every Claude user, so Claude users share one allowance.",
   "anonAddressHashRetentionDays": 7,
   "freeKeyIdleRevokeDays": 30,
   "hosts": [
@@ -133,10 +167,10 @@
         "If Claude asks about **Authentication**, choose **Sign in when needed**. If it asks about **OAuth client**, choose **Register automatically**. Claude may already show these as \"Detected\" — leave them. Do not choose **No sign-in**: Claude cannot change that later, so the tools that need your account would stay off until you remove the connector and add it again.",
         "Click **Add**.",
         "In a chat, click **+**, open **Connectors**, and switch **{{displayName}}** on.",
-        "Ask Claude: `Using {{displayName}}, call board_stats and tell me how many jobs are open right now.`"
+        "Ask Claude: `Using {{displayName}}, call search_jobs with query \"nurse\" and location \"Texas\", and show me the first ten.`"
       ],
-      "verify": "Under **+ → Connectors**, {{displayName}} is on. Ask \"call board_stats\": the answer names the number of open postings and a note of the form \"unkeyed: N of M anonymous calls left today\", where M is the allowance that answered (from Claude, the pool every Claude user shares).",
-      "signInOn": "the first time Claude needs your account — to open a posting in full, to check a shortlist, or to apply — a **Connect** card appears in the chat. Click it, sign in to {{displayName}}, press **Allow**, and Claude continues where it stopped."
+      "verify": "Under **+ → Connectors**, {{displayName}} is on. Ask the first question: {{searchRows}} results with ids come back, and the answer's note begins \"keyless:\" and says how many free lookups are left today.",
+      "signInOn": "the first time Claude needs your account, a **Connect** card appears in the chat. Click it, sign in to {{displayName}}, press **Allow**, and Claude continues where it stopped."
     },
     {
       "id": "chatgpt",
@@ -147,7 +181,7 @@
         "Go to chatgpt.com/plugins and click the **+** button.",
         "Type a name — `{{displayName}}` — and a description — `Live job board: search real openings from employers' own hiring systems.`",
         "Under **Connection**, paste this address as the MCP server URL: `{{url}}`. Paste it exactly as it is — do not add `/mcp` at the end. The address is on Supabase, the company that hosts our server; it is ours.",
-        "Create the connection, and check the list of tools it found — there should be {{toolCount}}.",
+        "Create the connection, and review the tools it found.",
         "Start a new chat and add **{{displayName}}** from the tools menu.",
         "Ask: `Search {{displayName}} for nurse jobs in Texas and show me the first ten.`"
       ],
@@ -160,7 +194,7 @@
       "steps": [
         "Copy this line and run it in your terminal (`--scope user` makes it available in every folder, not just this one): `{{claudeCodeKeyless}}`",
         "Start `claude` and type `/mcp` — `{{serverName}}` is listed as connected.",
-        "Ask: `call board_stats` — the answer names the number of open postings and says how many free calls are left today."
+        "Ask: `call board_stats` — the answer names the number of open postings (board_stats is never counted against the free allowance)."
       ],
       "verify": "`/mcp` lists `{{serverName}}` as connected; \"call board_stats\" answers with the count and the unkeyed note; with a key, \"call key_status\" names your tier and calls left.",
       "signInOn": "without a key, the first tool that needs your account makes `/mcp` show `! Needs authentication`; type `/mcp` and sign in in the browser (Claude Code 2.1.186 or newer can also run `claude mcp login {{serverName}}`)."
@@ -300,8 +334,8 @@
       "symptom": "The unkeyed allowance is spent",
       "flag": "server",
       "state": "any",
-      "why": "Your network address used its free calls today; an office or a chat service counts as one address.",
-      "fix": "Get a free key at {{keyPage}} ({{dailyQuota}} calls a day, no account) and add it to your app. Resets at midnight UTC."
+      "why": "Today's free calls are used up: yours, or — from Claude, whose servers carry every user — the allowance all Claude users share.",
+      "fix": "It resets at midnight UTC; meanwhile every posting is on the board at {{jobsPage}}. In an app that takes a key, a free key from {{keyPage}} gives {{dailyQuota}} calls a day."
     },
     {
       "symptom": "That key is not recognised.",
@@ -322,7 +356,7 @@
       "flag": "server",
       "state": "any",
       "why": "The free key's day is spent.",
-      "fix": "Wait for midnight UTC; the unkeyed tools still answer; an Agent Pass raises the limit for its hours."
+      "fix": "Wait for midnight UTC; the unkeyed tools still answer."
     },
     {
       "symptom": "requests/minute.",
@@ -332,32 +366,18 @@
       "fix": "Wait one minute."
     },
     {
-      "symptom": "fit_resume is a paid feature",
+      "symptom": "fit_resume's free daily allowance is used",
       "flag": "server",
       "state": "any",
-      "why": "Résumé fit scoring needs a paid key, a live Agent Pass or the Agent plan.",
-      "fix": "{{keyPage}} for a paid key, or {{passPage}} — search keeps working."
+      "why": "A confirmed free key scores a CV {{fitFreePerDay}} times a day ({{fitFullPerDay}} on an account with a paid plan).",
+      "fix": "It resets at midnight UTC. The search tools keep working on the key, and the job board scores a CV against a posting, free."
     },
     {
-      "symptom": "The apply agent needs an active Agent plan or a live pass.",
+      "symptom": "fit_resume needs a key whose email address was confirmed",
       "flag": "server",
       "state": "any",
-      "why": "Applying is paid.",
-      "fix": "{{passPage}} (sign in first), or the Agent plan on the site."
-    },
-    {
-      "symptom": "No agent mandate on this account.",
-      "flag": "server",
-      "state": "any",
-      "why": "The apply agent is not set up yet (the same answer names \"Your agent is switched off.\" and \"No resume on file\" when that is the blocker).",
-      "fix": "Account → set up the apply agent: turn it on, choose countries and field, add the CV. The off switch always wins."
-    },
-    {
-      "symptom": "The pass on this account is not live.",
-      "flag": "server",
-      "state": "any",
-      "why": "The pass ended, or its applications are used (\"No applications left on this pass.\").",
-      "fix": "Search keeps working; buy another pass when the clock ends."
+      "why": "The free scorings are for a key that came through the emailed link, or an account that has proven its mailbox — the same rule as POST /v1/fit.",
+      "fix": "Get a free key at {{keyPage}}: we email you a link, and the key it issues scores {{fitFreePerDay}} times a day."
     },
     {
       "symptom": "That is not a job id from this board.",
@@ -380,14 +400,6 @@
       "state": "any",
       "why": "Wrong transport (Cline: not `sse`; VS Code: `\"type\": \"http\"`), or `/mcp` appended to the address.",
       "fix": "The address ends in `/agent-mcp` exactly; the transport is HTTP (Cline: **Streamable HTTP**)."
-    },
-    {
-      "symptom": "ChatGPT only ever searches and fetches",
-      "flag": "vendor",
-      "doc": "https://developers.openai.com/apps-sdk/build/auth",
-      "state": "any",
-      "why": "By design: ChatGPT's search calls `search` and `fetch`, {{searchRows}} results a page.",
-      "fix": "For filters (pay, remote, seniority), use an app that calls `search_jobs`."
     },
     {
       "symptom": "Sign in to use this tool",

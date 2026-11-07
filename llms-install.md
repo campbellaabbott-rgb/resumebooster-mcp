@@ -6,18 +6,18 @@ You are configuring a REMOTE MCP server. There is nothing to download, build or 
 - Transport: Streamable HTTP (one POST per JSON-RPC message, no session to keep)
 - URL: https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp — paste it exactly; do not append `/mcp`
 - Server name to register: resumebooster
-- Optional credential: an environment variable `RESUMEBOOSTER_KEY` holding a `rb_live_...` key. A key belongs in the host's own secret store, its prompt, or its user-level config file (the blocks below name each); never in a committed file, a URL, a badge, a base64 config or a log. If the person has none, register the server with no header — board_stats, search_jobs, search and fetch answer unkeyed.
+- Optional credential: an environment variable `RESUMEBOOSTER_KEY` holding a `rb_live_...` key. A key belongs in the host's own secret store, its prompt, or its user-level config file (the blocks below name each); never in a committed file, a URL, a badge, a base64 config or a log. If the person has none, register the server with no header — board_stats, search_jobs, search, fetch, get_job, get_jobs, check_jobs_open, employer_hiring_record, employer_growth and apply_myself answer unkeyed.
 
 ## Steps
 
 1. Ask the person which host they use, or detect it from the config file present.
 2. Write the KEYLESS block for that host (below). Add the keyed form only when the person hands you a key, and only through the host's own indirection (an env var, `${env:RESUMEBOOSTER_KEY}`, `${input:…}`, `bearer_token_env_var`) — never paste the key into a value.
 3. Restart or reconnect the host's MCP servers (Claude Code: `/mcp`; Cursor: reload MCP settings; Cline: the MCP panel's restart).
-4. Verify with one unkeyed call: `board_stats` takes no arguments and answers with no key, and its answer says how many unkeyed calls are left today. With a key, `key_status` answers what the key may do.
+4. Verify with one unkeyed call: `board_stats` takes no arguments, answers with no key and is never counted against the keyless allowance (its answer says so). With a key, `key_status` answers what the key may do.
 
 ## Sign-in from chat apps (a rule, not today's state)
 
-Claude, Claude Desktop and ChatGPT have no field for a key. They sign you in instead — but only while the server's sign-in service is switched on. When it is off, a tool that needs your account answers in words (no Connect card), and `board_stats`, `search_jobs`, `search` and `fetch` still answer. Today's state: press **Test the server** on https://resumebooster.work/agents, or run
+Claude, Claude Desktop and ChatGPT have no field for a key. They sign you in instead — but only while the server's sign-in service is switched on. When it is off, a tool that needs your account answers in words (no Connect card), and `board_stats`, `search_jobs`, `search`, `fetch`, `get_job`, `get_jobs`, `check_jobs_open`, `employer_hiring_record`, `employer_growth` and `apply_myself` still answer. Today's state: press **Test the server** on https://resumebooster.work/agents, or run
 
     curl -s -X POST https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp -H 'content-type: application/json' -H 'mcp-protocol-version: 2025-06-18' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}' | jq '.result._meta["work.resumebooster/sign-in"].state'
 
@@ -114,27 +114,25 @@ Claude (claude.ai, Claude Desktop) and ChatGPT have no config file: the person a
 
 ## What the tools are
 
-Unkeyed (no key at all): `board_stats`, `search_jobs`, `search`, `fetch`. Any free key adds: `get_job`, `get_jobs`, `check_jobs_open`, `check_apply_support`, `employer_hiring_record`, `employer_growth`, `key_status`, `debug_search`.
-Paid or pass: `fit_resume`. Apply (account with a mandate): `request_application`, `application_status`.
+Unkeyed (no key at all): `board_stats`, `search_jobs`, `search`, `fetch`, `get_job`, `get_jobs`, `check_jobs_open`, `employer_hiring_record`, `employer_growth`, `apply_myself`. Any free key adds: `key_status`, `debug_search`.
+A key whose email address was confirmed adds: `fit_resume`.
 
-A `https://resumebooster.work/jobs?job=<id>` link's `id` is the argument `get_job`, `fetch`, `check_apply_support` and `request_application` take.
+A `https://resumebooster.work/jobs?job=<id>` link's `id` is the argument `get_job`, `fetch` and `apply_myself` take.
 
 Two hiring systems on the job board are not handed on by this server or the data API: the U.S. federal job feed, whose terms forbid redistributing it as a data feed, and SmartRecruiters, withheld until SmartRecruiters (SAP) permits it. Their postings stay on the job board, where you can open them yourself.
 
-Do not invent a posting, a salary or an employer fact the tools did not return. `check_jobs_open` re-verifies a shortlist cheaply before `get_jobs`. Never call `request_application` without the person's explicit yes for that job id.
+Do not invent a posting, a salary or an employer fact the tools did not return. `check_jobs_open` re-verifies a shortlist cheaply before `get_jobs`. `apply_myself` helps the person apply themselves: ask them the factual questions, draft only what it marks `draft_from_your_cv`, and stop before Submit. Nothing is ever submitted for them.
 
 ## If a tool refuses
 
 - "Sign-in through this server is not switched on yet, so this tool needs a key." (while sign-in is off) — The tool needs your account, and sign-in from chat apps is not switched on today. Search, board statistics and full postings still work with no key. To use every tool, connect from Claude Code, Cursor or VS Code with a free key (https://resumebooster.work/data-api).
-- "The unkeyed allowance is spent" — Your network address used its free calls today; an office or a chat service counts as one address. Get a free key at https://resumebooster.work/data-api (1000 calls a day, no account) and add it to your app. Resets at midnight UTC.
+- "The unkeyed allowance is spent" — Today's free calls are used up: yours, or — from Claude, whose servers carry every user — the allowance all Claude users share. It resets at midnight UTC; meanwhile every posting is on the board at https://resumebooster.work/jobs. In an app that takes a key, a free key from https://resumebooster.work/data-api gives 1000 calls a day.
 - "That key is not recognised." — The key was cut off, or the header lacks `Bearer ` with the space. The header must read `Authorization: Bearer rb_live_…`. A key is shown once; get a new one if lost (the old one stops working).
 - "This key has been revoked." — A newer key replaced it, it went unused for 30 days, or it was a free key issued before keys needed a confirmed email (4 October 2026). Use your newest key, or get one at https://resumebooster.work/data-api (we email you a link) and update every app that holds the old one.
-- "Daily quota of" — The free key's day is spent. Wait for midnight UTC; the unkeyed tools still answer; an Agent Pass raises the limit for its hours.
+- "Daily quota of" — The free key's day is spent. Wait for midnight UTC; the unkeyed tools still answer.
 - "requests/minute." — Too many calls in one minute. Wait one minute.
-- "fit_resume is a paid feature" — Résumé fit scoring needs a paid key, a live Agent Pass or the Agent plan. https://resumebooster.work/data-api for a paid key, or https://resumebooster.work/agents/pass — search keeps working.
-- "The apply agent needs an active Agent plan or a live pass." — Applying is paid. https://resumebooster.work/agents/pass (sign in first), or the Agent plan on the site.
-- "No agent mandate on this account." — The apply agent is not set up yet (the same answer names "Your agent is switched off." and "No resume on file" when that is the blocker). Account → set up the apply agent: turn it on, choose countries and field, add the CV. The off switch always wins.
-- "The pass on this account is not live." — The pass ended, or its applications are used ("No applications left on this pass."). Search keeps working; buy another pass when the clock ends.
+- "fit_resume's free daily allowance is used" — A confirmed free key scores a CV 25 times a day (1000 on an account with a paid plan). It resets at midnight UTC. The search tools keep working on the key, and the job board scores a CV against a posting, free.
+- "fit_resume needs a key whose email address was confirmed" — The free scorings are for a key that came through the emailed link, or an account that has proven its mailbox — the same rule as POST /v1/fit. Get a free key at https://resumebooster.work/data-api: we email you a link, and the key it issues scores 25 times a day.
 - "That is not a job id from this board." — You passed a link or a title. Use the id from a search, e.g. `greenhouse:acme:12345`; the id in a `https://resumebooster.work/jobs?job=<id>` link is the same one.
 - "This is an MCP server for AI agents, not a web page" — You opened the address like a web page. Nothing is wrong. Paste it into your agent; the how-to is https://resumebooster.work/agents.
-- "Sign in to use this tool" (while sign-in is on) — A tool that needs a key was called with none (HTTP 401 from a script or curl). Send `Authorization: Bearer <key>` (free at https://resumebooster.work/data-api), or call one of `board_stats`, `search_jobs`, `search` and `fetch`.
+- "Sign in to use this tool" (while sign-in is on) — A tool that needs a key was called with none (HTTP 401 from a script or curl). Send `Authorization: Bearer <key>` (free at https://resumebooster.work/data-api), or call one of `board_stats`, `search_jobs`, `search`, `fetch`, `get_job`, `get_jobs`, `check_jobs_open`, `employer_hiring_record`, `employer_growth` and `apply_myself`.

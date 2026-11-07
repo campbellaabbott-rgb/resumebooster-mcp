@@ -24,6 +24,11 @@ const toolsOf = (tier) => C.tools.filter((t) => t.tier === tier).map((t) => t.na
 const READ = toolsOf("read");
 const PAID = toolsOf("paid");
 const APPLY = toolsOf("apply");
+// The apply agent's tools are retired on the server (owner decision
+// 2026-10-11: RETIRED_TOOLS, listed to nobody), so the site's mirror lists no
+// apply tool and nothing below describes that tier. A tool listed in it again
+// needs its gate re-worded from the site before anything here prints it.
+if (APPLY.length) throw new Error(`apply-tier tools listed (${APPLY.join(", ")}): the apply tier is retired on the server — re-word the tier table and skills from the site before publishing them`);
 const ANON = C.anonTools;
 const KEYED_READ = READ.filter((n) => !ANON.includes(n));
 const list = (names) => names.map((n) => `\`${n}\``).join(", ");
@@ -236,9 +241,10 @@ const FILL = {
   serverName: NAME,
   serverInfoName: C.serverInfoName,
   toolCount: String(C.tools.length),
-  perAddressPerDay: String(C.anonCaps.perAddressPerDay),
   searchRows: String(C.anonCaps.searchRows),
   dailyQuota: String(C.freeKeyDailyQuota),
+  fitFreePerDay: String(C.fitFreePerDay),
+  fitFullPerDay: String(C.fitFullPerDay),
   keyIdleDays: String(C.freeKeyIdleRevokeDays),
   keyPage: C.keyPage,
   passPage: C.passPage,
@@ -327,19 +333,24 @@ const hostSection = (h) => {
   return parts.join("\n");
 };
 
+// The unkeyed row is the /agents page's developer disclosure (AgentConnect.tsx),
+// its figures read from the mirrored MCP_ANON_CAPS — the split by platform,
+// never the site's legacy perAddressPerDay/hostPoolPerDay/globalPerDay names.
+// The fit row is the site's MCP_FIT_ALLOWANCE and fit_resume's own gate.
+const A = C.anonCaps;
+const unkeyedAllowance = `A daily allowance split by where the call comes from: Claude's users share ${A.shares.claude}; ChatGPT's share ${A.shares.chatgpt} (${A.chatgptPerPerson} for each person when ChatGPT's call names them, ${A.chatgptNoSubject} shared by calls that name nobody); every other caller has ${A.otherPerConnection} per internet connection (an IPv4 address or an IPv6 /64); ${A.overallPerDay} a day in all, and at most ${A.perMinute.overall} a minute across every keyless caller. Reading an application form draws on a separate pool of ${A.forms.overall} a day. A keyless search returns ${A.searchRows} rows a page, to offset ${A.maxOffset}; \`board_stats\` is never counted.`;
 const tierTable = `| Tier | Tools | What opens it |
 |---|---|---|
-| Unkeyed | ${list(ANON)} | Nothing. ${C.anonCaps.perAddressPerDay} calls a day per network address, ${C.anonCaps.globalPerDay} a day across every unkeyed caller, a search is one page of ${C.anonCaps.searchRows} rows. |
+| Unkeyed | ${list(ANON)} | Nothing. ${unkeyedAllowance} |
 | Free key | ${list(KEYED_READ)} (and the unkeyed tools at a higher cap) | A free key from ${C.keyPage} — ${C.freeKeyDailyQuota} calls a day. |
-| Paid or pass | ${list(PAID)} | The paid API tier, or a live pass on the key's account (${C.passPage}). |
-| Apply | ${list(APPLY)} | A key linked to an account with an Agent plan or a live pass, and a mandate — see \`key_status\`. |`;
+| Confirmed key | ${list(PAID)} | A key whose email address was confirmed (the free key the emailed link issues), or an account that has proven its mailbox — ${C.fitFreePerDay} scorings a day; ${C.fitFullPerDay} on an account with a paid plan, counted together with \`POST /v1/fit\` on the data API. Never offered inside ChatGPT. |`;
 
 const privacy = `## Privacy
 
 Every search you run travels to the server as the query you typed. A key is stored as its hash and its first characters, never the key. For unkeyed calls the server keeps a truncated hash of your network address for the daily cap and drops it after ${C.anonAddressHashRetentionDays} days; the address itself is never stored. The tools never write to your machine. A key belongs in an environment variable, a keychain prompt or a host's secret store — never in a file you commit, a URL, a badge or a base64 config. Nothing in this repository carries a key.`;
 
 const unkeyedSentence = `${prose(ANON)} answer with no key at all, so a fresh connection works on its first call from any host.`;
-const jobIdSentence = `A \`${C.jobsPage}?job=<id>\` link's \`id\` is the argument \`get_job\`, \`fetch\`, \`check_apply_support\` and \`request_application\` take.`;
+const jobIdSentence = `A \`${C.jobsPage}?job=<id>\` link's \`id\` is the argument \`get_job\`, \`fetch\` and \`apply_myself\` take.`;
 // THE RULE, NEVER THE STATE. Whether sign-in works from Claude and ChatGPT
 // is a fact the server computes at request time and publishes on its own
 // initialize answer; this file is rebuilt by hand, so it states the rule and
@@ -347,12 +358,11 @@ const jobIdSentence = `A \`${C.jobsPage}?job=<id>\` link's \`id\` is the argumen
 const signInRule = `Claude, Claude Desktop and ChatGPT have no field for a key. They sign you in instead — but only while the server's sign-in service is switched on. When it is off, a tool that needs your account answers in words (no Connect card), and ${prose(ANON.map((n) => `\`${n}\``))} still answer.`;
 const signInReaderTail = `which prints \`"on"\`, \`"off"\` or \`"unknown"\` — the same word the page shows (the server reads the sign-in service's own metadata at \`${AS_URL}\` and caches the answer briefly).`;
 const signInParagraph = `${signInRule} Today's state: press **Test the server** on ${C.agentsPage}, or run\n\n\`\`\`sh\n${signInReader}\n\`\`\`\n\n${signInReaderTail}`;
-const verifyLine = `**Verify:** ask your agent to call \`board_stats\`. It answers with no key and says how many free calls are left today.`;
-// The site's MCP_ADDRESS_GLOSS, word for word: a call from Claude's or
-// ChatGPT's published egress is counted first in that host's own allowance
-// (agent-mcp ANON_HOST_POOL_PER_DAY) — per person from ChatGPT, one pool
-// from Claude — and only then in the address's.
-const addressGloss = `${C.anonCaps.perAddressPerDay} free calls a day per network address — an office or a home connection counts as one address. From ChatGPT each person has their own ${C.anonCaps.perAddressPerDay}; from Claude, whose servers carry every user, calls come first from a pool of ${C.anonCaps.hostPoolPerDay} a day that all Claude users share, then from the address's own ${C.anonCaps.perAddressPerDay}.`;
+// board_stats is cached and never counted (agent-mcp's keyless board_stats
+// answer says so), so the line names the count it returns, not calls left.
+const verifyLine = `**Verify:** ask your agent to call \`board_stats\`. It answers with no key and names the number of open postings; it is never counted against the free allowance.`;
+// The site's MCP_ADDRESS_GLOSS, word for word (C.addressGloss): count-free on
+// the site's purpose — the figures sit in the tier table above it.
 // The registry, said once with its links while the entry is listed, and as a
 // reserved name (no link) when it is not.
 const registryBullet = C.registry?.listed
@@ -392,7 +402,7 @@ ${signInParagraph}
 
 ${tierTable}
 
-The unkeyed allowance is ${addressGloss}
+${C.addressGloss}
 
 ## Install
 
@@ -441,7 +451,7 @@ You are configuring a REMOTE MCP server. There is nothing to download, build or 
 1. Ask the person which host they use, or detect it from the config file present.
 2. Write the KEYLESS block for that host (below). Add the keyed form only when the person hands you a key, and only through the host's own indirection (an env var, \`\${env:${ENV}}\`, \`\${input:…}\`, \`bearer_token_env_var\`) — never paste the key into a value.
 3. Restart or reconnect the host's MCP servers (Claude Code: \`/mcp\`; Cursor: reload MCP settings; Cline: the MCP panel's restart).
-4. Verify with one unkeyed call: \`board_stats\` takes no arguments and answers with no key, and its answer says how many unkeyed calls are left today. With a key, \`key_status\` answers what the key may do.
+4. Verify with one unkeyed call: \`board_stats\` takes no arguments, answers with no key and is never counted against the keyless allowance (its answer says so). With a key, \`key_status\` answers what the key may do.
 
 ## Sign-in from chat apps (a rule, not today's state)
 
@@ -498,13 +508,13 @@ Claude (claude.ai, Claude Desktop) and ChatGPT have no config file: the person a
 ## What the tools are
 
 Unkeyed (no key at all): ${list(ANON)}. Any free key adds: ${list(KEYED_READ)}.
-Paid or pass: ${list(PAID)}. Apply (account with a mandate): ${list(APPLY)}.
+A key whose email address was confirmed adds: ${list(PAID)}.
 
 ${jobIdSentence}
 
 ${C.withheldNote}
 
-Do not invent a posting, a salary or an employer fact the tools did not return. \`check_jobs_open\` re-verifies a shortlist cheaply before \`get_jobs\`. Never call \`request_application\` without the person's explicit yes for that job id.
+Do not invent a posting, a salary or an employer fact the tools did not return. \`check_jobs_open\` re-verifies a shortlist cheaply before \`get_jobs\`. \`apply_myself\` helps the person apply themselves: ask them the factual questions, draft only what it marks \`draft_from_your_cv\`, and stop before Submit. Nothing is ever submitted for them.
 
 ## If a tool refuses
 
@@ -537,9 +547,9 @@ This plugin's \`.mcp.json\` registers \`${NAME}\` at \`${URL}\` and reads the ke
 
        ${claudeCodeKeyed}
 
-3. Run \`/mcp\` and reconnect, then call \`key_status\` — it answers the tier, the calls left today and whether the paid and apply tools would work, with any blocker named.
+3. Run \`/mcp\` and reconnect, then call \`key_status\` — it answers the tier, the requests left this minute, the calls left today and the fit scorings left today, with any blocker named.
 
-Never write the key into \`.mcp.json\`, a URL, or a file that is committed. If a keyed tool answers that sign-in through the server is not switched on, this connection holds no key and no sign-in: say that ${prose(ANON.map((n) => `\`${n}\``))} still answer, point at ${C.keyPage}, and stop. If \`key_status\` says the paid tools are closed, a pass or plan at ${C.passPage} opens them; name the gate, never a price.
+Never write the key into \`.mcp.json\`, a URL, or a file that is committed. If a keyed tool answers that sign-in through the server is not switched on, this connection holds no key and no sign-in: say that ${prose(ANON.map((n) => `\`${n}\``))} still answer, point at ${C.keyPage}, and stop. If ${prose(PAID.map((n) => `\`${n}\``))} is refused, name the gate: a key whose email address was confirmed (the free key the emailed link issues) scores ${C.fitFreePerDay} times a day, and an account with a paid plan ${C.fitFullPerDay} — never a price.
 `;
 
 const findJobsSkill = `---
@@ -556,9 +566,9 @@ Order of calls, and why:
 3. \`check_jobs_open\` on the shortlist before \`get_jobs\` — it re-verifies from the board's index, up to many ids per call, and names that basis.
 4. \`get_job\` or \`get_jobs\` for the full text of the ones that survived (\`fetch\` reads one posting with no key). ${jobIdSentence}
 5. \`employer_hiring_record\` for an employer's own record — per board, never summed, never a ranking; a takedown is a takedown, never a hire.
-6. \`check_apply_support\` before any talk of applying; \`request_application\` only after the person says yes to that specific job id, and only if \`key_status\` shows the apply tools open (account, mandate, plan or pass).
+6. \`apply_myself\` when the person wants to apply to one: it returns the employer's real application form where its hiring system publishes one (otherwise the posting's apply link), with who should answer each question. Ask the person the factual questions, draft only what it marks \`draft_from_your_cv\`, and stop before Submit — the person reads every answer and submits on the employer's own site. Nothing is ever submitted for them.
 
-Rules: never invent a posting, salary or employer fact the tools did not return; show pay only when the card states it; say "unknown" when the tool does. Tools that need a key or a pass: name the gate (${C.keyPage} for a key, ${C.passPage} for a pass), never a price. A tool that answers "Sign-in through this server is not switched on yet" needs a key this connection does not hold: say so, name the unkeyed tools, and stop.
+Rules: never invent a posting, salary or employer fact the tools did not return; show pay only when the card states it; say "unknown" when the tool does. Tools that need a key: name the gate (${C.keyPage} for a free key), never a price. A tool that answers "Sign-in through this server is not switched on yet" needs a key this connection does not hold: say so, name the unkeyed tools, and stop.
 `;
 
 // -------------------------------------------------------------------- write
