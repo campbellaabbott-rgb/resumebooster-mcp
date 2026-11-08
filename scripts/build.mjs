@@ -50,12 +50,18 @@ const prose = (names) =>
 const orProse = (names) =>
   names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
 // The hiring systems whose real application form apply_myself returns, and
-// the pair it reads inside ChatGPT (the site's MCP_FORM_VENDORS labels and
-// MCP_FORM_VENDORS_ON_CHATGPT, mirrored).
+// the pair it reads inside ChatGPT: the site's MCP_FORM_VENDORS (with
+// MCP_FORM_VENDORS_AFTER_DEPLOY) and MCP_FORM_VENDORS_ON_CHATGPT, held to the
+// server's FORM_READER_VENDORS and PUBLIC_API_FORM_VENDORS by the mirror test.
 const FORM_VENDORS = orProse(C.formVendors.map((v) => v.label));
 const FORM_VENDORS_CHATGPT = orProse(C.formVendors.filter((v) => C.formVendorsOnChatGpt.includes(v.key)).map((v) => v.label));
-// The site's MCP_EXAMPLE_QUESTION: the first question every page suggests.
-const EXAMPLE_QUESTION = `Using ${C.connectorName}, call search_jobs with query "${C.testQuery}" and location "Texas", and show me the first ten.`;
+// The site's MCP_EXAMPLE_QUESTION: the first question every page suggests, in
+// the words a person types (the server moves "in <known place>" to location).
+const EXAMPLE_QUESTION = `Find ${C.testQuery} jobs in Texas with ${C.connectorName} and show me ten.`;
+// What a job tool takes besides the id: agent-mcp's job-link.ts reads the
+// board's ?job= links and posting pages and the employer's own Greenhouse,
+// Lever and Ashby links (the mirror test holds the reader to these).
+const JOB_LINKS = `a \`${C.jobsPage}?job=<id>\` link, a \`${C.site}/jobs/posting/\` page, or the employer's own Greenhouse, Lever or Ashby posting link`;
 
 // A key is pasted by the PERSON into their environment, never by us into a
 // value: no generated file carries a placeholder inside an Authorization
@@ -278,6 +284,7 @@ const FILL = {
   keyPage: C.keyPage,
   privacyPage: C.privacyPage,
   jobsPage: C.jobsPage,
+  jobLinks: JOB_LINKS,
   anonToolCount: String(LISTED_NO_KEY.length),
   exampleQuestion: EXAMPLE_QUESTION,
   chatgptPricingUrl: C.chatgptPlanRule.url,
@@ -400,7 +407,7 @@ ${["job-ids", "address", "chatgpt-id", "usage", "cv", "chat"].map((id) => `| ${p
 A key is stored as its hash and its first characters, never the key. The tools never write to your machine. A key belongs in an environment variable, a keychain prompt or a host's secret store — never in a file you commit, a URL, a badge or a base64 config. Nothing in this repository carries a key.`;
 
 const unkeyedSentence = `${prose(ANON)} answer with no key at all, so a fresh connection works on its first call from any host.`;
-const jobIdSentence = `A \`${C.jobsPage}?job=<id>\` link's \`id\` is the argument \`get_job\`, \`fetch\` and \`apply_myself\` take.`;
+const jobIdSentence = `Every tool that takes a job (\`get_job\`, \`get_jobs\`, \`fetch\`, \`check_jobs_open\` and \`apply_myself\`) takes its id or the posting's link: ${JOB_LINKS}.`;
 // The board has no sponsorship filter (search_jobs takes none); the owner's
 // 2026-11-07 decision is that answers say so plainly. Rule (1) of applyRules
 // already forbids inferring it.
@@ -412,7 +419,7 @@ const applyRulesSentence = `An AI helping someone apply follows the server's own
 // is a fact the server computes at request time and publishes on its own
 // initialize answer; this file is rebuilt by hand, so it states the rule and
 // hands the reader the one-line curl that prints today's state.
-const signInRule = `Claude, Claude Desktop and ChatGPT have no field for a key. They sign you in instead — but only while the server's sign-in service is switched on. When it is off, a tool that needs your account answers in words (no Connect card), and ${prose(ANON.map((n) => `\`${n}\``))} still answer.`;
+const signInRule = `Claude, Claude Desktop and ChatGPT have no field for a key. They can sign you in instead — but only while the server's sign-in service is switched on, and a connector added while it was off may need removing and adding again first. When it is off, a tool that needs your account answers in words (no Connect card), and ${prose(ANON.map((n) => `\`${n}\``))} still answer.`;
 const signInReaderTail = `which prints \`"on"\`, \`"off"\` or \`"unknown"\` — the same word the page shows (the server reads the sign-in service's own metadata at \`${AS_URL}\` and caches the answer briefly).`;
 const signInParagraph = `${signInRule} Today's state: press **Test the server** on ${C.agentsPage}, or run\n\n\`\`\`sh\n${signInReader}\n\`\`\`\n\n${signInReaderTail}`;
 // board_stats is cached and never counted (agent-mcp's keyless board_stats
@@ -505,8 +512,8 @@ ${privacy}
 ## This repository
 
 - \`mcp.config.json\` is the only place a URL, tool name, cap, quota, host step or troubleshooting row is written. \`npm run build\` regenerates every other file; \`npm test\` fails if any generated file was edited by hand or the constants changed without a rebuild, validates each manifest against the schema its host publishes (copies under \`schemas/\`, fetched 2026-09-16), and checks that no generated file carries a placeholder inside an Authorization value.
-- The tool list, the host ids (the six above and the long tail) and the sign-in key are a mirror of the site's own (\`${C.mirror.of}\` at \`${C.mirror.at}\`); when that changes, this file is re-synced and rebuilt.
-- \`npm run check-live\` asks the live server for its \`tools/list\` with no key (and with \`${ENV}\` too, when it is set) and fails if the tool bullets at the top of this file name a different set. It reads production, so \`npm test\` never runs it; the weekly CI run does.
+- The tool list, the host ids (the six above and the long tail) and the sign-in key are a mirror of the site's own (\`${C.mirror.of}\`), and the server's own words are quoted from its build \`${C.mirror.serverBuild}\`; when either changes, this file is re-synced and rebuilt.
+- \`npm run check-live\` asks the live server for its \`tools/list\` with no key (and with \`${ENV}\` too, when it is set) and fails if the tool bullets at the top of this file name a different set, or if the server runs a build older than \`${C.mirror.serverBuild}\`. It reads production, so \`npm test\` never runs it; the weekly CI run does.
 - Every vendor label in the steps above is quoted from the vendor's documentation on the date in [docs-snapshot.md](./docs-snapshot.md); a label that is not there is not published here.
 - \`server.json\` is the entry for the official MCP Registry, at version ${C.version}; the registry's API record linked above shows the version it serves.
 
@@ -647,7 +654,7 @@ description: Search the live ${C.displayName} for a person, re-check that the sh
 
 Every tool below answers with no key: ${list(ANON)}. Order of calls, and why:
 
-1. \`search_jobs\` with the role read from the person's words, or from the CV they gave you in this conversation (never invented). Put the place in \`location\`, not in \`query\`, and send job titles and places, never CV text. Read its disclosures (\`ignoredFilters\`, \`countUnavailable\`) back to them. With no key, a search is one page of ${C.anonCaps.searchRows} rows, to offset ${C.anonCaps.maxOffset}.
+1. \`search_jobs\` with the role read from the person's words, or from a CV the person confirms, given in this conversation or kept in its project or memory (never invented). Put the place in \`location\`, not in \`query\`, and send job titles and places, never CV text. Read its disclosures (\`ignoredFilters\`, \`countUnavailable\`) back to them. With no key, a search is one page of ${C.anonCaps.searchRows} rows, to offset ${C.anonCaps.maxOffset}.
 2. \`check_jobs_open\` on the shortlist (up to ${C.anonCaps.checkJobsOpenIds} ids a call with no key) before reading it in full — it answers from the board's index, not the employer's site at that instant, and names that basis.
 3. \`get_jobs\` or \`get_job\` for the full text of the ones still open (\`fetch\` is the same read in ChatGPT's research shape). ${jobIdSentence}
 4. \`employer_hiring_record\` or \`employer_growth\` for an employer's own record — per board, never summed, never a ranking; a takedown is a takedown, never a hire.

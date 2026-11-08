@@ -17,6 +17,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, sta
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { compareBuilds } from "../scripts/check-live.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const C = JSON.parse(readFileSync(join(ROOT, "mcp.config.json"), "utf8"));
@@ -71,6 +72,7 @@ test("mcp.config.json is internally consistent", () => {
   assert.match(C.chatgptPlanRule.read, /^\d{4}-\d{2}-\d{2}$/);
   assert.equal(C.chatgptPlanRule.url, "https://chatgpt.com/pricing");
   assert.equal(C.passPage, undefined, "the Agent Pass is retired; no constant may point at its page");
+  assert.match(C.mirror.serverBuild, /^agent-mcp\.\d{4}-\d{2}-\d{2}\.\d+$/, "the build whose strings these pages quote, as the server's x-fn-build spells it");
 });
 
 test("the plugin, the marketplace, the extension and the registry entry carry one version, above the one the registry published", () => {
@@ -577,9 +579,75 @@ test("teeth: the /mcp reader reports each old shape pasted into the README", () 
   assert.equal(mcpSuffixClaims(`${readme}\n| x | Wrong transport, or \`/mcp\` appended to the address. | y |\n`).length, 1);
 });
 
-test("the allowance row starts with the site's own words for where a key goes", () => {
+test("the allowance row names no key and no app, as the site's row does, because it is seen from every app (CJ-08)", () => {
   const row = C.troubleshooting.find((r) => r.symptom === "The unkeyed allowance is spent");
-  assert.ok(row.fix.includes("In Claude Code"), "the site's row says In Claude Code; the README adds the other apps that send a header");
+  assert.ok(!/\bkey\b|Claude Code|Cursor|VS Code/.test(row.fix), `the row sends a chat reader to a key or an app: ${row.fix}`);
+  assert.ok(row.fix.includes("{{jobsPage}}"), "it names where every posting stays meanwhile");
+});
+
+// ---------------------------------------------------------------------------
+// The seo-connect re-sync (2026-11-08): the site's W2 copy on /agents
+// (fix/seo-connect-fe) and the strings agent-mcp 2026-11-08.1 answers
+// (fix/connect-mcp). The pages had kept copy W2 took off /agents, and quoted
+// strings that deploy changes; they are published only once it is live
+// (scripts/check-live.mjs refuses an older live build).
+
+// What W2 took off /agents (CJ-02, CJ-08, CJ-09, PLT-1107-09): the first
+// question that named a tool and its arguments, the order to pick the
+// sign-in options by hand, the chat row that sent a seeker to a terminal app
+// for a key, and ChatGPT's sign-in promised unconditionally.
+const w2RemovedCopy = (text) =>
+  [/call search_jobs with query/, /choose \*\*Sign in when needed\*\*/, /\*\*Register automatically\*\*/, /Do not choose \*\*No sign-in\*\*/, /To use every tool, connect from/, /ChatGPT shows its sign-in/]
+    .filter((re) => re.test(text))
+    .map(String);
+
+test("no published file carries copy the site's W2 took off /agents: the tool-call first question, the sign-in choice, the key push in a chat row, ChatGPT's promised sign-in", () => {
+  for (const f of PUBLISHED()) assert.deepEqual(w2RemovedCopy(readText(f)), [], `${f} still says what /agents no longer says`);
+  const off = C.troubleshooting.find((r) => r.state === "off");
+  assert.ok(off.fix.startsWith("Everything you need to search, read postings in full and apply yourself works with no sign-in."), `the sign-in-off row says what works first: ${off.fix}`);
+});
+
+test("teeth: the W2 reader reports each removed line pasted into the README", () => {
+  const readme = readText("README.md");
+  const pasted = [
+    'Ask: `Using Resume Booster, call search_jobs with query "nurse" and location "Texas", and show me the first ten.`',
+    "If Claude asks about **Authentication**, choose **Sign in when needed**.",
+    "If it asks about **OAuth client**, choose **Register automatically**.",
+    "Do not choose **No sign-in**: Claude cannot change that later.",
+    "To use every tool, connect from Claude Code, Cursor or VS Code with a free key.",
+    "if a tool needs your account, ChatGPT shows its sign-in for Resume Booster",
+  ];
+  for (const p of pasted) assert.ok(w2RemovedCopy(`${readme}\n${p}\n`).length > 0, `the reader missed "${p}"`);
+});
+
+test("the Claude steps are the help article's dialog in its order, every label is one Claude's documents print, and a phone reader is told where the dialog is first", () => {
+  const readme = readText("README.md");
+  const section = readme.slice(readme.indexOf("### Claude ("), readme.indexOf("### ChatGPT"));
+  const steps = section.slice(section.indexOf("\n1. "), section.indexOf("\nWhen sign-in is on"));
+  const order = ["Click **+ Add**, then **Add custom connector**", "Enter the name:", "Paste this address into the server URL field", "Click **Continue**.", "Keep them as they are and click **Continue**.", "Click **Add**."];
+  let at = -1;
+  for (const s of order) {
+    const i = steps.indexOf(s, at + 1);
+    assert.ok(i > at, `"${s}" is missing from the Claude steps or out of order`);
+    at = i;
+  }
+  const said = C.docsSnapshot.filter((d) => d.block.split(/,\s*/).includes("claude")).flatMap((d) => d.sentences).join(" ");
+  for (const [, label] of steps.matchAll(/\*\*([^*]+)\*\*/g)) {
+    if (label === C.connectorName) continue;
+    assert.ok(said.includes(label), `Claude step label **${label}** is not in Claude's documents as snapshotted`);
+  }
+  const phone = section.indexOf("On a phone?");
+  assert.ok(phone > 0 && phone < section.indexOf("\n1. "), "the phone note sits before step 1");
+});
+
+test("the job-id row and the id sentence say a pasted posting link is read, as agent-mcp's job-link reader does", () => {
+  const row = C.troubleshooting.find((r) => r.symptom === "That is not a job id from this board.");
+  assert.ok(!/You passed a link or a title/.test(row.why), "the row blames a link the server reads from agent-mcp 2026-11-08.1");
+  for (const f of ["README.md", "llms-install.md", "skills/find-jobs/SKILL.md"]) {
+    const text = readText(f);
+    assert.ok(text.includes("the employer's own Greenhouse, Lever or Ashby posting link"), `${f} names the employer links the server reads`);
+    assert.ok(text.includes(`${C.site}/jobs/posting/`), `${f} names the board's posting pages`);
+  }
 });
 
 test("every troubleshooting row is the server's string or cites a doc in the snapshot, and its symptom is rendered", () => {
@@ -705,6 +773,12 @@ test(
   async () => {
     assert.ok(existsSync(mirrorFile), `CI must check the website repo out beside this one (${mirrorFile}) — the mirror is unenforced otherwise; MIRROR_SKIP_OK=1 skips knowingly`);
     const ts = stripComments(readFileSync(mirrorFile, "utf8"));
+    // First, the build whose strings these pages quote: the site's agent-mcp
+    // is at it or past it, so a page never quotes a server the site has not
+    // merged (a push before the merge fails here, naming both builds).
+    const fnBuild = stripComments(readFileSync(join(siblingDir, "supabase", "functions", "agent-mcp", "index.ts"), "utf8")).match(/const FN_BUILD = "(agent-mcp\.\d{4}-\d{2}-\d{2}\.\d+)";/);
+    assert.ok(fnBuild, "FN_BUILD not found in agent-mcp — RE-ANCHOR");
+    assert.ok(compareBuilds(fnBuild[1], C.mirror.serverBuild) >= 0, `the site's agent-mcp is ${fnBuild[1]}, older than ${C.mirror.serverBuild}, the build whose strings these pages quote — the site has not merged it; do not push before it`);
     const block = ts.match(/export const MCP_TOOLS[^=]*=\s*\[([\s\S]*?)\n\];/);
     assert.ok(block, "MCP_TOOLS array not found");
     const entries = [...block[1].matchAll(/name:\s*"([^"]+)",\s*tier:\s*"([^"]+)"/g)].map((m) => ({ name: m[1], tier: m[2] }));
@@ -776,14 +850,30 @@ test(
       assert.equal(row.kept, kept[1], `privacy row ${row.id}: kept drifted from the site`);
     }
 
-    // The form vendors and the ChatGPT pair are the site's MCP_FORM_VENDORS
-    // and MCP_FORM_VENDORS_ON_CHATGPT.
-    const vendors = ts.match(/export const MCP_FORM_VENDORS:[^=]*=\s*\[([\s\S]*?)\];/);
+    // The form vendors are the systems the server reads: the site's
+    // MCP_FORM_VENDORS, then MCP_FORM_VENDORS_AFTER_DEPLOY (the five agent-mcp
+    // 2026-11-08.1 adds, which the site holds apart until the frontend publish
+    // after that deploy folds them in), and as a set the server's own
+    // FORM_READER_VENDORS. The ChatGPT pair is the site's
+    // MCP_FORM_VENDORS_ON_CHATGPT and the server's PUBLIC_API_FORM_VENDORS.
+    const vendorList = (name) => {
+      const m = ts.match(new RegExp(`export const ${name}:[^=]*=\\s*\\[([\\s\\S]*?)\\];`));
+      return m ? [...m[1].matchAll(/\{ key: "([^"]+)", label: "([^"]+)" \}/g)].map((x) => ({ key: x[1], label: x[2] })) : null;
+    };
+    const vendors = vendorList("MCP_FORM_VENDORS");
     assert.ok(vendors, "MCP_FORM_VENDORS not found — RE-ANCHOR");
-    assert.deepEqual(C.formVendors, [...vendors[1].matchAll(/\{ key: "([^"]+)", label: "([^"]+)" \}/g)].map((m) => ({ key: m[1], label: m[2] })), "formVendors drifted from the site's MCP_FORM_VENDORS");
+    assert.deepEqual(C.formVendors, [...vendors, ...(vendorList("MCP_FORM_VENDORS_AFTER_DEPLOY") ?? [])], "formVendors drifted from the site's MCP_FORM_VENDORS (+ MCP_FORM_VENDORS_AFTER_DEPLOY)");
+    const formSrc = stripComments(readFileSync(join(siblingDir, "supabase", "functions", "_shared", "application-form.ts"), "utf8"));
+    const serverVendors = (name) => {
+      const m = formSrc.match(new RegExp(`export const ${name}[^=]*=\\s*\\[([^\\]]*)\\]`));
+      assert.ok(m, `${name} not found in _shared/application-form.ts — RE-ANCHOR`);
+      return [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+    };
+    assert.deepEqual(C.formVendors.map((v) => v.key).sort(), serverVendors("FORM_READER_VENDORS").sort(), "formVendors names a system the server does not read, or leaves out one it does (FORM_READER_VENDORS)");
     const onChatGpt = ts.match(/export const MCP_FORM_VENDORS_ON_CHATGPT:[^=]*=\s*\[([^\]]*)\]/);
     assert.ok(onChatGpt, "MCP_FORM_VENDORS_ON_CHATGPT not found — RE-ANCHOR");
     assert.deepEqual(C.formVendorsOnChatGpt, [...onChatGpt[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]));
+    assert.deepEqual([...C.formVendorsOnChatGpt].sort(), serverVendors("PUBLIC_API_FORM_VENDORS").sort(), "the ChatGPT pair drifted from the server's PUBLIC_API_FORM_VENDORS");
 
     // The first question every page suggests is the site's MCP_EXAMPLE_QUESTION.
     const testQuery = ts.match(/export const MCP_TEST_QUERY\s*=\s*"([^"]+)"/);
@@ -808,6 +898,34 @@ test(
       assert.ok(!site.includes("${"), `${id}'s verify reads a constant this check does not fill — RE-ANCHOR`);
       assert.equal(fillText(C.hosts.find((h) => h.id === id).verify), site, `${id}'s verify line drifted from the site's`);
     }
+
+    // Claude's dialog as the site walks it (W2, CJ-02): the authentication
+    // step is the site's CLAUDE_AUTH_STEP, text and note, word for word; the
+    // address goes into the field the site names; and every bold label up to
+    // the dialog's **Add** is the site's, in the site's order.
+    const authStep = ts.match(/const CLAUDE_AUTH_STEP[^=]*=\s*\{\s*text:\s*"((?:[^"\\]|\\.)*)",\s*note:\s*"((?:[^"\\]|\\.)*)",?\s*\};/);
+    assert.ok(authStep, "CLAUDE_AUTH_STEP not found as { text, note } — RE-ANCHOR");
+    const unquote = (s) => JSON.parse(`"${s}"`);
+    const claudeSteps = C.hosts.find((h) => h.id === "claude").steps.map(fillText);
+    assert.ok(claudeSteps.includes(`${unquote(authStep[1])} ${unquote(authStep[2])}`), "the Claude authentication step drifted from the site's CLAUDE_AUTH_STEP (text then note, word for word)");
+    const manual = ts.match(/const claudeManualSteps\s*=\s*\([^)]*\)[^=]*=>\s*\[([\s\S]*?)\n\];/);
+    assert.ok(manual, "claudeManualSteps not found — RE-ANCHOR");
+    const manualText = manual[1].replace(/\bCLAUDE_AUTH_STEP\b/, `{ text: "${authStep[1]}", note: "${authStep[2]}" }`);
+    const into = manualText.match(/addressStep\(ctx, "([^"]+)"\)/);
+    assert.ok(into, "the Claude address step's field is not named — RE-ANCHOR");
+    assert.ok(claudeSteps.some((s) => s.startsWith(`Paste this address into ${into[1]}:`)), `the address step names a field the site does not: ${into[1]}`);
+    const labelsUpToAdd = (text) => {
+      const end = text.indexOf("Click **Add**.");
+      assert.ok(end > 0, "no **Add** step — RE-ANCHOR");
+      return [...text.slice(0, end + "Click **Add**.".length).matchAll(/\*\*([^*]+)\*\*/g)].map((m) => m[1]);
+    };
+    assert.deepEqual(labelsUpToAdd(claudeSteps.join("\n")), labelsUpToAdd(manualText), "the Claude dialog's labels drifted from the site's claudeManualSteps");
+
+    // ChatGPT's sign-in line is the site's signIn("on"), which since
+    // PLT-1107-09 promises nothing OpenAI does not document.
+    const chatgptOn = hostsBlock.slice(hostsBlock.indexOf('id: "chatgpt",')).match(/s === "on"\s*\?\s*`((?:[^`\\]|\\.)*)`/);
+    assert.ok(chatgptOn, "chatgpt's signIn('on') not found — RE-ANCHOR");
+    assert.equal(fillText(C.hosts.find((h) => h.id === "chatgpt").signInOn), siteFill(chatgptOn[1]).replace(/^When a tool needs your account, /, "if a tool needs your account, "), "ChatGPT's sign-in line drifted from the site's signIn('on')");
 
     // connect3: the host ids and the sign-in meta key mirror the page lane's
     // MCP_HOSTS[].id / MCP_SIGN_IN_META_KEY. Until that commit lands on the
@@ -857,6 +975,14 @@ test(
     assert.deepEqual(C.retiredTools, listIn("RETIRED_TOOLS"), "retiredTools drifted from agent-mcp's RETIRED_TOOLS");
     assert.deepEqual(C.neverListed, listIn("NEVER_LISTED"), "neverListed drifted from agent-mcp's NEVER_LISTED");
     assert.deepEqual(C.notOnChatGpt, listIn("NOT_ON_CHATGPT"), "notOnChatGpt drifted from agent-mcp's NOT_ON_CHATGPT");
+    // A pasted posting link is read (the job-id sentence and row): the
+    // server's job-link reader takes the board's ?job= links and posting
+    // pages and the employers' own Greenhouse, Lever and Ashby links.
+    const jobLinkFile = join(fnDir, "job-link.ts");
+    assert.ok(existsSync(jobLinkFile), "agent-mcp/job-link.ts is not in the site: the pages say a pasted posting link is read, which only agent-mcp 2026-11-08.1 does");
+    const jobLink = stripComments(readFileSync(jobLinkFile, "utf8"));
+    for (const host of ["greenhouse\\.io", "lever\\.co", "ashbyhq\\.com"]) assert.ok(jobLink.includes(host), `job-link.ts no longer reads ${host.replace(/\\/g, "")} links`);
+    assert.ok(jobLink.includes('seg[1] === "posting"') && jobLink.includes('searchParams.get("job")'), "job-link.ts no longer reads the board's own links");
     // The apply rules are the server's HONESTY_RULES, word for word.
     const honesty = serverSrc.match(/const HONESTY_RULES\s*=\s*((?:\s*"(?:[^"\\]|\\.)*"\s*\+?)+);/);
     assert.ok(honesty, "HONESTY_RULES not found in agent-mcp — RE-ANCHOR");

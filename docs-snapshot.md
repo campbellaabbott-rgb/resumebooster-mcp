@@ -32,6 +32,26 @@ Fetched 2026-11-08 · used by: claude
 - You add custom connectors to your own account. On the Free plan, you can add one custom connector.
 - Click the + button in your chat interface and select **Connectors**, then turn each connector on or off for that conversation.
 
+## https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp
+
+Fetched 2026-11-08 · used by: claude
+
+- Navigate to **Customize > Connectors**.
+- Click "+ Add" then “Add custom connector.”
+- Enter a name for the connector. This is the name users see in the connectors list.
+- Add your connector's remote MCP server URL. Click “Continue.”
+- Review the authentication settings Claude detected, and change them if your server needs something different. Click “Continue.”
+- Finish configuring your connector by clicking "Add."
+- If you're hoping to edit a custom connector, you'll need to remove it first, then re-add it using the updated details.
+- When you add a custom connector, Claude connects to your remote MCP server from Anthropic's cloud infrastructure, rather than from your local device. This is true across every Claude client, including claude.ai, Claude Desktop, Cowork, and the mobile apps.
+
+## https://claude.com/docs/connectors/getting-started
+
+Fetched 2026-11-08 · used by: claude, claude-code
+
+- A connected connector is available in your conversations on the web, desktop, and mobile. You choose in each conversation whether Claude can use it.
+- **Claude Code**: the connectors you add in claude.ai are available in Claude Code, in the terminal and in cloud sessions, when you sign in with your Claude account.
+
 ## https://claude.com/docs/connectors/building/troubleshooting
 
 Fetched 2026-09-16 · used by: troubleshooting

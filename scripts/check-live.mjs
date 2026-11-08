@@ -8,15 +8,22 @@
 //       also asks with the key and compares that answer with the no-key
 //       bullet plus "With a key it also lists:".
 //
+// It also reads the build the server names in its x-fn-build header and
+// fails when it is older than mcp.config.json's mirror.serverBuild, the build
+// whose strings the README quotes: the pages are re-synced to a deploy before
+// it ships, so this is the check that says the deploy is live and the pages
+// may be published.
+//
 // It reads production (tools/list is free and unmetered on the server), so
 // `npm test` never runs it; the weekly CI job does, and test/check-live.test.mjs
 // proves the comparison offline against a local stand-in server. MCP_URL
 // overrides the address (the test points it at that stand-in). The key is
 // sent only as the Authorization header and never printed.
 //
-// Exit 0: the README names what the server lists. Exit 1: they differ, and
-// every difference is printed. Exit 2: the README could not be read, or the
-// server could not be asked.
+// Exit 0: the README names what the server lists, and the server runs the
+// build the README quotes or a later one. Exit 1: they differ, and every
+// difference is printed. Exit 2: the README could not be read, or the server
+// could not be asked.
 
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -74,8 +81,30 @@ export function diffToolLists(lists, live) {
   return problems;
 }
 
-/** The tool names one tools/list answers, keyless or with `key`. */
-export async function liveToolNames(url, key) {
+/**
+ * Two agent-mcp builds ("agent-mcp.2026-11-08.1") compared: negative when `a`
+ * is older, 0 when equal, positive when newer. The day sorts as text; the
+ * day's sequence as a number, so .10 is after .9.
+ */
+export function compareBuilds(a, b) {
+  const parse = (s) => {
+    const m = /^agent-mcp\.(\d{4}-\d{2}-\d{2})\.(\d+)$/.exec(String(s ?? ""));
+    if (!m) throw new Error(`"${s}" is not an agent-mcp build (agent-mcp.YYYY-MM-DD.N)`);
+    return [m[1], Number(m[2])];
+  };
+  const [[da, na], [db, nb]] = [parse(a), parse(b)];
+  return da === db ? na - nb : da < db ? -1 : 1;
+}
+
+/** Why a live build cannot carry the README's words, or null when it can. */
+export function buildProblem(live, wanted) {
+  if (!live) return `the server sent no x-fn-build header, so the build it runs cannot be compared with ${wanted}, the build whose words the README quotes`;
+  if (compareBuilds(live, wanted) < 0) return `the live server runs ${live}, older than ${wanted}, the build whose words the README quotes: publish after the deploy that carries it verifies`;
+  return null;
+}
+
+/** The tool names one tools/list answers, keyless or with `key`, and the build its x-fn-build names. */
+export async function liveTools(url, key) {
   const headers = { "content-type": "application/json", "mcp-protocol-version": "2025-06-18" };
   if (key) headers.authorization = `Bearer ${key}`;
   const res = await fetch(url, {
@@ -89,7 +118,7 @@ export async function liveToolNames(url, key) {
   if (body.error) throw new Error(`tools/list answered an error${key ? " (with a key)" : ""}: ${body.error.message}`);
   const tools = body.result?.tools;
   if (!Array.isArray(tools)) throw new Error("tools/list answered no tools array");
-  return tools.map((t) => t.name);
+  return { names: tools.map((t) => t.name), build: res.headers.get("x-fn-build") };
 }
 
 const isEntry = !!process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
@@ -106,15 +135,22 @@ if (isEntry) {
     process.exit(2);
   }
   let live;
+  let build;
   try {
-    live = { keyless: await liveToolNames(url) };
-    if (key) live.keyed = await liveToolNames(url, key);
+    const keyless = await liveTools(url);
+    live = { keyless: keyless.names };
+    build = keyless.build;
+    if (key) live.keyed = (await liveTools(url, key)).names;
   } catch (e) {
     console.error(`check-live: could not ask ${url}: ${e.message}`);
     process.exit(2);
   }
+  const wanted = config.mirror.serverBuild;
   const problems = diffToolLists(lists, live);
+  const behind = buildProblem(build, wanted);
+  if (behind) problems.push(behind);
   console.log(`check-live: ${url}`);
+  console.log(`  live build:         ${build ?? "none named"} (the README quotes ${wanted})`);
   console.log(`  keyless tools/list: ${live.keyless.length} — ${live.keyless.join(", ")}`);
   if (live.keyed) console.log(`  keyed tools/list:   ${live.keyed.length} — ${live.keyed.join(", ")}`);
   else console.log("  keyed tools/list:   not asked (RESUMEBOOSTER_KEY is not set)");
@@ -123,5 +159,5 @@ if (isEntry) {
     console.error(`check-live: ${problems.length} difference(s) between the README and the live server`);
     process.exit(1);
   }
-  console.log("check-live: the README names what the server lists");
+  console.log("check-live: the README names what the server lists, and the server runs the build it quotes or a later one");
 }

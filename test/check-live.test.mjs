@@ -11,7 +11,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { diffToolLists, readmeToolLists } from "../scripts/check-live.mjs";
+import { buildProblem, compareBuilds, diffToolLists, readmeToolLists } from "../scripts/check-live.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const C = JSON.parse(readFileSync(join(ROOT, "mcp.config.json"), "utf8"));
@@ -69,8 +69,25 @@ test("a README with no tool bullets is refused, not passed", () => {
   assert.throws(() => readmeToolLists("# nothing here\n"), /has no "Tools: N in all\."/);
 });
 
-// The script run end to end against a stand-in for the server.
-const standIn = (names) =>
+test("builds compare by day, then by the day's sequence as a number", () => {
+  assert.ok(compareBuilds("agent-mcp.2026-11-08.1", "agent-mcp.2026-11-03.1") > 0);
+  assert.ok(compareBuilds("agent-mcp.2026-11-08.10", "agent-mcp.2026-11-08.9") > 0, "sequence 10 is after 9");
+  assert.equal(compareBuilds("agent-mcp.2026-11-08.1", "agent-mcp.2026-11-08.1"), 0);
+  assert.ok(compareBuilds("agent-mcp.2026-10-31.4", "agent-mcp.2026-11-01.1") < 0);
+  assert.throws(() => compareBuilds("job-board.2026-11-08.1", "agent-mcp.2026-11-08.1"), /not an agent-mcp build/);
+});
+
+test("a live build older than the one the README quotes is a problem that names both, and none or a newer one is judged too", () => {
+  const want = C.mirror.serverBuild;
+  assert.match(buildProblem("agent-mcp.2026-11-03.1", want), new RegExp(`runs agent-mcp\\.2026-11-03\\.1, older than ${want.replace(/\./g, "\\.")}`));
+  assert.match(buildProblem(null, want), /sent no x-fn-build/);
+  assert.equal(buildProblem(want, want), null);
+  assert.equal(buildProblem("agent-mcp.2099-01-01.1", want), null);
+});
+
+// The script run end to end against a stand-in for the server, which names
+// its build in x-fn-build as agent-mcp does (the README's build unless told).
+const standIn = (names, build = C.mirror.serverBuild) =>
   new Promise((resolveServer) => {
     const server = createServer((req, res) => {
       let body = "";
@@ -78,6 +95,7 @@ const standIn = (names) =>
       req.on("end", () => {
         const msg = JSON.parse(body);
         res.setHeader("content-type", "application/json");
+        if (build) res.setHeader("x-fn-build", build);
         res.end(JSON.stringify({ jsonrpc: "2.0", id: msg.id, result: { tools: names.map((name) => ({ name, inputSchema: { type: "object" } })) } }));
       });
     });
@@ -111,6 +129,26 @@ test("the script exits 0 when the stand-in lists what the README names, and 1 na
     assert.match(r.out, /DIFF tools\/list with no key: the server lists brand_new_tool/);
   } finally {
     more.close();
+  }
+});
+
+test("the script exits 1 before the deploy the README quotes is live, naming the live build and the one it waits for", async () => {
+  const old = await standIn([...ANON], "agent-mcp.2026-11-03.1");
+  try {
+    const r = await runScript(`http://127.0.0.1:${old.address().port}`);
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.out, /DIFF the live server runs agent-mcp\.2026-11-03\.1, older than/);
+    assert.ok(r.out.includes(C.mirror.serverBuild), r.out);
+  } finally {
+    old.close();
+  }
+  const silent = await standIn([...ANON], null);
+  try {
+    const r = await runScript(`http://127.0.0.1:${silent.address().port}`);
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.out, /sent no x-fn-build/);
+  } finally {
+    silent.close();
   }
 });
 
