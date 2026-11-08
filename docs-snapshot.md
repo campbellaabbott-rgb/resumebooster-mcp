@@ -25,6 +25,13 @@ Fetched 2026-09-16 · used by: claude
 - Select **Add**, then **Custom**. If Claude asks for the connector type, choose **Web**.
 - Members then: Go to **Customize > Connectors** … Find the connector with "Custom" label … Click "Connect" to authenticate
 
+## https://claude.com/docs/connectors/custom/remote-mcp#on-a-free-pro-max-or-ultra-plan
+
+Fetched 2026-11-08 · used by: claude
+
+- You add custom connectors to your own account. On the Free plan, you can add one custom connector.
+- Click the + button in your chat interface and select **Connectors**, then turn each connector on or off for that conversation.
+
 ## https://claude.com/docs/connectors/building/troubleshooting
 
 Fetched 2026-09-16 · used by: troubleshooting
@@ -33,20 +40,25 @@ Fetched 2026-09-16 · used by: troubleshooting
 
 ## https://developers.openai.com/apps-sdk/deploy/connect-chatgpt
 
-Fetched 2026-09-16 · used by: chatgpt
+Fetched 2026-11-08 · used by: chatgpt
 
-- Open **Settings**.
-- Select **Security and login**.
-- Turn on **Developer mode**.
-- Go to ChatGPT Plugins.
-- Select the plus button.
+- Account and workspace policies apply to adding and using custom MCP servers.
+- Go to **ChatGPT Plugins**.
+- Select the plus button, then **Add custom MCP server**.
 - Enter a user-facing name and description.
 - Under **Connection**, choose the connection method: For a public endpoint, enter the MCP server URL, including the `/mcp` path.
-- Create the connection.
+- Configure authentication, review the risk warning, and select **I understand and want to continue**.
+- Select **Create as a plugin**.
 - Review the tools and metadata discovered from the server.
-- Start a new conversation and add the MCP connection from the tools menu.
+- Install the resulting plugin, then start a new conversation. Type `@` in the prompt box and select the plugin.
 
-Not on the page (so not published): `Mixed`, `Work`, `@`
+Not on the page (so not published): `Developer mode`, `Mixed`
+
+## https://chatgpt.com/pricing
+
+Fetched 2026-11-08 · used by: chatgpt
+
+- Plan: Free, Feature: Create & share Plugins, No
 
 ## https://developers.openai.com/apps-sdk/build/auth
 
@@ -67,6 +79,17 @@ Fetched 2026-09-16 · used by: claude-code
 - Claude Code marks a remote server as needing authentication when the server responds with `401 Unauthorized` or `403 Forbidden`.
 - ! Needs authentication
 - In a remote server's `url` and `headers`, Claude Code reads credential variables from your environment as empty rather than expanding them.
+
+## https://code.claude.com/docs/en/discover-plugins
+
+Fetched 2026-11-08 · used by: claude-code
+
+- Run `/plugin install` in a Claude Code session with the plugin and the source. Requires Claude Code v2.1.275 or later.
+- /plugin install deploy-helper --marketplace your-org/plugins
+- In your shell, without starting a session, run `claude plugin install` with the plugin and the source. Requires Claude Code v2.1.292 or later.
+- claude plugin install deploy-helper --marketplace your-org/plugins
+- **Off by default**: every other marketplace, including the community marketplace, third-party marketplaces, and local development marketplaces.
+- To update one plugin, open it on the **Installed** tab in `/plugin` during a session and select **Update now**, or run `claude plugin update <plugin>@<marketplace>` in your shell.
 
 ## https://cursor.com/docs/context/mcp/install-links
 

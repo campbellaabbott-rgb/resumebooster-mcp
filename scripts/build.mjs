@@ -31,9 +31,31 @@ const APPLY = toolsOf("apply");
 if (APPLY.length) throw new Error(`apply-tier tools listed (${APPLY.join(", ")}): the apply tier is retired on the server — re-word the tier table and skills from the site before publishing them`);
 const ANON = C.anonTools;
 const KEYED_READ = READ.filter((n) => !ANON.includes(n));
+// What tools/list shows (the server's listedTools): with no credential the
+// unkeyed tools; with one, every tool but NEVER_LISTED; inside ChatGPT never
+// NOT_ON_CHATGPT. The README's tool bullets are these three sets, in the
+// registry's order, so scripts/check-live.mjs can diff them against a live
+// tools/list.
+const NEVER_LISTED = C.neverListed;
+const NOT_ON_CHATGPT = C.notOnChatGpt;
+const RETIRED = C.retiredTools;
+const LISTED_NO_KEY = C.tools.map((t) => t.name).filter((n) => ANON.includes(n));
+const LISTED_WITH_KEY_ADDS = C.tools.map((t) => t.name).filter((n) => !ANON.includes(n) && !NEVER_LISTED.includes(n));
+for (const n of [...NEVER_LISTED, ...NOT_ON_CHATGPT]) if (!C.tools.some((t) => t.name === n)) throw new Error(`${n} is named in neverListed/notOnChatGpt but is not a tool`);
+for (const n of RETIRED) if (C.tools.some((t) => t.name === n)) throw new Error(`${n} is retired on the server (RETIRED_TOOLS) and must not be listed as a tool`);
+for (const n of ANON) if (NEVER_LISTED.includes(n)) throw new Error(`${n} is unkeyed and never listed — the server lists every unkeyed tool`);
 const list = (names) => names.map((n) => `\`${n}\``).join(", ");
 const prose = (names) =>
   names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+const orProse = (names) =>
+  names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
+// The hiring systems whose real application form apply_myself returns, and
+// the pair it reads inside ChatGPT (the site's MCP_FORM_VENDORS labels and
+// MCP_FORM_VENDORS_ON_CHATGPT, mirrored).
+const FORM_VENDORS = orProse(C.formVendors.map((v) => v.label));
+const FORM_VENDORS_CHATGPT = orProse(C.formVendors.filter((v) => C.formVendorsOnChatGpt.includes(v.key)).map((v) => v.label));
+// The site's MCP_EXAMPLE_QUESTION: the first question every page suggests.
+const EXAMPLE_QUESTION = `Using ${C.connectorName}, call search_jobs with query "${C.testQuery}" and location "Texas", and show me the first ten.`;
 
 // A key is pasted by the PERSON into their environment, never by us into a
 // value: no generated file carries a placeholder inside an Authorization
@@ -142,7 +164,7 @@ const geminiExtension = {
   settings: [
     {
       name: "API key",
-      description: `Optional. A free ${C.keyPrefix} key from ${C.keyPage} opens every read tool; leave it empty and ${prose(ANON)} still answer.`,
+      description: `Optional. A free ${C.keyPrefix} key from ${C.keyPage} adds ${prose(LISTED_WITH_KEY_ADDS)}; leave it empty and ${prose(ANON)} still answer.`,
       envVar: ENV,
       sensitive: true,
     },
@@ -229,6 +251,13 @@ const indent = (block) => block.split("\n").map((l) => "    " + l).join("\n");
 
 const pluginAdd = `/plugin marketplace add ${C.repoOwner}/${C.repoName}`;
 const pluginInstall = `/plugin install ${NAME}@${NAME}`;
+// The one-step form names the marketplace source with --marketplace
+// (code.claude.com/docs/en/discover-plugins, fetched 2026-11-08: v2.1.275 in a
+// session, v2.1.292 from the shell). Installed copies from a third-party
+// marketplace do not update themselves ("Off by default"), so the README says
+// how to take a new version.
+const pluginInstallShell = `claude plugin install ${NAME} --marketplace ${C.repoOwner}/${C.repoName}`;
+const pluginUpdate = `claude plugin update ${NAME}@${NAME}`;
 
 // ------------------------------------------------------------- placeholders
 // Step, verify and troubleshooting text in mcp.config.json carries
@@ -247,8 +276,13 @@ const FILL = {
   fitFullPerDay: String(C.fitFullPerDay),
   keyIdleDays: String(C.freeKeyIdleRevokeDays),
   keyPage: C.keyPage,
-  passPage: C.passPage,
+  privacyPage: C.privacyPage,
   jobsPage: C.jobsPage,
+  anonToolCount: String(LISTED_NO_KEY.length),
+  exampleQuestion: EXAMPLE_QUESTION,
+  chatgptPricingUrl: C.chatgptPlanRule.url,
+  chatgptPlanRead: C.chatgptPlanRule.read,
+  chatgptPlanQuote: C.chatgptPlanRule.quote,
   agentsPage: C.agentsPage,
   keyPrefix: C.keyPrefix,
   envVar: ENV,
@@ -280,7 +314,7 @@ const HOST_BLOCKS = {
   claude: {},
   chatgpt: {},
   "claude-code": {
-    keyed: `With a free key, for every project:\n\n\`\`\`sh\n${exportLine}\n${claudeCodeKeyed}\n\`\`\`\n\nOr clone this repository: its \`.mcp.json\` is a project-scope server, so Claude Code asks once to approve it and you are connected. As a plugin (adds the \`/${NAME}:setup\` and \`/${NAME}:find-jobs\` skills):\n\n\`\`\`text\n${pluginAdd}\n${pluginInstall}\n\`\`\`\n\nThe \`.mcp.json\` in this repo reads the key from the environment: \`\${${ENV}:-}\` expands to the key when \`${ENV}\` is set and to nothing otherwise, and the server answers an empty header as the unkeyed tier — so the same file works with a key and without one. The keyless variant, if you would rather no header be sent at all:\n\n\`\`\`json\n${mcpJsonKeyless}\n\`\`\``,
+    keyed: `With a free key, for every project:\n\n\`\`\`sh\n${exportLine}\n${claudeCodeKeyed}\n\`\`\`\n\nOr clone this repository: its \`.mcp.json\` is a project-scope server, so Claude Code asks once to approve it and you are connected. As a plugin (adds the \`/${NAME}:setup\` and \`/${NAME}:find-jobs\` skills), in one command from your shell (Claude Code 2.1.292 or newer):\n\n\`\`\`sh\n${pluginInstallShell}\n\`\`\`\n\nor, in a session:\n\n\`\`\`text\n${pluginAdd}\n${pluginInstall}\n\`\`\`\n\n(on 2.1.275 or newer, \`/plugin install ${NAME} --marketplace ${C.repoOwner}/${C.repoName}\` does both in one line). Claude Code does not update a plugin from a marketplace like this one by itself (auto-update is off by default for third-party marketplaces); to take a new version, run \`${pluginUpdate}\`.\n\nThe \`.mcp.json\` in this repo reads the key from the environment: \`\${${ENV}:-}\` expands to the key when \`${ENV}\` is set and to nothing otherwise, and the server answers an empty header as the unkeyed tier — so the same file works with a key and without one. The keyless variant, if you would rather no header be sent at all:\n\n\`\`\`json\n${mcpJsonKeyless}\n\`\`\``,
   },
   cursor: {
     block: ["json", cursorJsonKeyless],
@@ -324,6 +358,7 @@ for (const h of ALL_HOSTS) if (!(h.id in HOST_BLOCKS)) throw new Error(`no block
 const hostSection = (h) => {
   const b = HOST_BLOCKS[h.id];
   const parts = [`### ${h.name}${h.also ? ` (${h.also})` : ""}`, ""];
+  if (h.lead) parts.push(fill(h.lead), "");
   parts.push(h.steps.map((s, i) => `${i + 1}. ${fill(s)}`).join("\n"), "");
   if (b.block) parts.push(`\`\`\`${b.block[0]}\n${b.block[1]}\n\`\`\``, "");
   if (b.keyed) parts.push(b.keyed, "");
@@ -345,12 +380,34 @@ const tierTable = `| Tier | Tools | What opens it |
 | Free key | ${list(KEYED_READ)} (and the unkeyed tools at a higher cap) | A free key from ${C.keyPage} — ${C.freeKeyDailyQuota} calls a day. |
 | Confirmed key | ${list(PAID)} | A key whose email address was confirmed (the free key the emailed link issues), or an account that has proven its mailbox — ${C.fitFreePerDay} scorings a day; ${C.fitFullPerDay} on an account with a paid plan, counted together with \`POST /v1/fit\` on the data API. Never offered inside ChatGPT. |`;
 
+// The privacy rows are the site's MCP_PRIVACY_ROWS, word for word (the mirror
+// test pins each by id). The search row is computed on the site from a flag
+// and a date, so this paragraph links the table for it rather than copy it.
+const privacyRow = (id) => {
+  const r = C.privacyRows.find((x) => x.id === id);
+  if (!r) throw new Error(`privacyRows has no ${id}`);
+  return r;
+};
 const privacy = `## Privacy
 
-Every search you run travels to the server as the query you typed. A key is stored as its hash and its first characters, never the key. For unkeyed calls the server keeps a truncated hash of your network address for the daily cap and drops it after ${C.anonAddressHashRetentionDays} days; the address itself is never stored. The tools never write to your machine. A key belongs in an environment variable, a keychain prompt or a host's secret store — never in a file you commit, a URL, a badge or a base64 config. Nothing in this repository carries a key.`;
+What reaches the server from your AI, and what it keeps, is the table under "Using Resume Booster from your own AI" on ${C.privacyPage}. Its rows, word for word, except the first, whose answer depends on the app and the day, so it is linked rather than copied:
+
+| What | What is kept |
+|---|---|
+| Your search words and filters | The first row of the table on ${C.privacyPage}, for each app. |
+${["job-ids", "address", "chatgpt-id", "usage", "cv", "chat"].map((id) => `| ${privacyRow(id).what} | ${privacyRow(id).kept} |`).join("\n")}
+
+A key is stored as its hash and its first characters, never the key. The tools never write to your machine. A key belongs in an environment variable, a keychain prompt or a host's secret store — never in a file you commit, a URL, a badge or a base64 config. Nothing in this repository carries a key.`;
 
 const unkeyedSentence = `${prose(ANON)} answer with no key at all, so a fresh connection works on its first call from any host.`;
 const jobIdSentence = `A \`${C.jobsPage}?job=<id>\` link's \`id\` is the argument \`get_job\`, \`fetch\` and \`apply_myself\` take.`;
+// The board has no sponsorship filter (search_jobs takes none); the owner's
+// 2026-11-07 decision is that answers say so plainly. Rule (1) of applyRules
+// already forbids inferring it.
+const visaSentence = "The board cannot filter by visa sponsorship: no search filter takes it. An AI asked about sponsorship says so plainly, and never infers it from a posting.";
+// apply_myself is the only apply path, free and keyless; the person submits.
+const applySentence = `\`apply_myself\` is how a person applies, free and with no key: when the posting's hiring system is ${FORM_VENDORS}, it returns the employer's real application form, every question with its options and who should answer it; otherwise it returns the posting's apply link. Inside ChatGPT it reads the form only for ${FORM_VENDORS_CHATGPT}. The person reads every answer and presses Submit on the employer's own site: ${C.connectorName} never submits anything for anyone. Reading a form draws on a pool of its own (${C.anonCaps.forms.overall} a day across keyless callers), so it never spends a search.`;
+const applyRulesSentence = `An AI helping someone apply follows the server's own rules, word for word: ${C.applyRules}`;
 // THE RULE, NEVER THE STATE. Whether sign-in works from Claude and ChatGPT
 // is a fact the server computes at request time and publishes on its own
 // initialize answer; this file is rebuilt by hand, so it states the rule and
@@ -360,7 +417,19 @@ const signInReaderTail = `which prints \`"on"\`, \`"off"\` or \`"unknown"\` — 
 const signInParagraph = `${signInRule} Today's state: press **Test the server** on ${C.agentsPage}, or run\n\n\`\`\`sh\n${signInReader}\n\`\`\`\n\n${signInReaderTail}`;
 // board_stats is cached and never counted (agent-mcp's keyless board_stats
 // answer says so), so the line names the count it returns, not calls left.
-const verifyLine = `**Verify:** ask your agent to call \`board_stats\`. It answers with no key and names the number of open postings; it is never counted against the free allowance.`;
+// That count is the whole board's: it includes the withheld systems'
+// postings, which no tool here returns (its excludedSources names them). The
+// figure an AI can search is the one the home page prints, dated.
+const verifyLine = `**Verify:** ask your agent to call \`board_stats\`. It answers with no key and names the number of open postings; it is never counted against the free allowance. That number is the whole board's: it includes the postings of the hiring systems this server does not hand on (the answer's \`excludedSources\` names them), so your AI can search fewer. The home page, ${C.site}, prints the number your AI can search and the day it was counted.`;
+// What tools/list answers each kind of caller, as four bullets that
+// scripts/check-live.mjs reads back and diffs against a live tools/list.
+const toolBullets = [
+  `- Tools: ${C.tools.length} in all.`,
+  `  - With no key, \`tools/list\` lists ${LISTED_NO_KEY.length}: ${list(LISTED_NO_KEY)}`,
+  `  - With a key it also lists: ${list(LISTED_WITH_KEY_ADDS)}`,
+  `  - Answered on a key, never listed: ${list(NEVER_LISTED)}`,
+  `  - Never listed inside ChatGPT: ${list(NOT_ON_CHATGPT)}`,
+].join("\n");
 // The site's MCP_ADDRESS_GLOSS, word for word (C.addressGloss): count-free on
 // the site's purpose — the figures sit in the tier table above it.
 // The registry, said once with its links while the entry is listed, and as a
@@ -385,8 +454,8 @@ ${C.description} ${unkeyedSentence}
 
 ${verifyLine}
 
-- Server address: \`${URL}\` — this address is on Supabase, the company that hosts our server; it is ours. Paste it exactly as it is (do not add \`/mcp\`). It is a plain web address your agent talks to (MCP over Streamable HTTP, one POST per message, no session to keep); there is nothing to install.
-- Tools: ${C.tools.length} — ${list(C.tools.map((t) => t.name))}
+- Server address: \`${URL}\` — this address is on Supabase, the company that hosts our server; it is ours. Paste it exactly as it is (it also answers with \`/mcp\` on the end, but needs nothing added). It is a plain web address your agent talks to (MCP over Streamable HTTP, one POST per message, no session to keep); there is nothing to install.
+${toolBullets}
 - The how-to, per app, with a **Test the server** button: ${C.agentsPage}
 - Free key: ${C.keyPage}
 ${registryBullet}- Also on the site: the Ghost Job Index, the board's live measure of which postings are real (open roles, how old they are by the employer's own date, the takedowns it has logged), at ${C.ghostJobIndexPage}; and live ATS score benchmarks from the site's own résumé scans, at ${C.atsBenchmarksPage}.
@@ -395,6 +464,16 @@ ${registryBullet}- Also on the site: the Ghost Job Index, the board's live measu
 ${jobIdSentence}
 
 ${C.withheldNote}
+
+${visaSentence}
+
+## Applying yourself
+
+${applySentence}
+
+${applyRulesSentence}
+
+## Sign-in
 
 ${signInParagraph}
 
@@ -419,7 +498,7 @@ ${troubleshootingTable}
 ## The plugin's skills
 
 - \`/${NAME}:setup\` — get a free key, put it in \`${ENV}\`, reconnect.
-- \`/${NAME}:find-jobs\` — the search → verify → apply order, with the gates named.
+- \`/${NAME}:find-jobs\` — search, re-check the shortlist is open, read it, then help the person apply themselves with \`apply_myself\`, under the server's apply rules.
 
 ${privacy}
 
@@ -427,8 +506,9 @@ ${privacy}
 
 - \`mcp.config.json\` is the only place a URL, tool name, cap, quota, host step or troubleshooting row is written. \`npm run build\` regenerates every other file; \`npm test\` fails if any generated file was edited by hand or the constants changed without a rebuild, validates each manifest against the schema its host publishes (copies under \`schemas/\`, fetched 2026-09-16), and checks that no generated file carries a placeholder inside an Authorization value.
 - The tool list, the host ids (the six above and the long tail) and the sign-in key are a mirror of the site's own (\`${C.mirror.of}\` at \`${C.mirror.at}\`); when that changes, this file is re-synced and rebuilt.
+- \`npm run check-live\` asks the live server for its \`tools/list\` with no key (and with \`${ENV}\` too, when it is set) and fails if the tool bullets at the top of this file name a different set. It reads production, so \`npm test\` never runs it; the weekly CI run does.
 - Every vendor label in the steps above is quoted from the vendor's documentation on the date in [docs-snapshot.md](./docs-snapshot.md); a label that is not there is not published here.
-- \`server.json\` is the entry for the official MCP Registry.
+- \`server.json\` is the entry for the official MCP Registry, at version ${C.version}; the registry's API record linked above shows the version it serves.
 
 ## License
 
@@ -442,7 +522,7 @@ const llmsInstall = `<!-- GENERATED by scripts/build.mjs from mcp.config.json �
 You are configuring a REMOTE MCP server. There is nothing to download, build or run locally.
 
 - Transport: Streamable HTTP (one POST per JSON-RPC message, no session to keep)
-- URL: ${URL} — paste it exactly; do not append \`/mcp\`
+- URL: ${URL} — paste it exactly (it also answers with \`/mcp\` appended, but needs nothing added)
 - Server name to register: ${NAME}
 - Optional credential: an environment variable \`${ENV}\` holding a \`${C.keyPrefix}...\` key. A key belongs in the host's own secret store, its prompt, or its user-level config file (the blocks below name each); never in a committed file, a URL, a badge, a base64 config or a log. If the person has none, register the server with no header — ${prose(ANON)} answer unkeyed.
 
@@ -451,7 +531,7 @@ You are configuring a REMOTE MCP server. There is nothing to download, build or 
 1. Ask the person which host they use, or detect it from the config file present.
 2. Write the KEYLESS block for that host (below). Add the keyed form only when the person hands you a key, and only through the host's own indirection (an env var, \`\${env:${ENV}}\`, \`\${input:…}\`, \`bearer_token_env_var\`) — never paste the key into a value.
 3. Restart or reconnect the host's MCP servers (Claude Code: \`/mcp\`; Cursor: reload MCP settings; Cline: the MCP panel's restart).
-4. Verify with one unkeyed call: \`board_stats\` takes no arguments, answers with no key and is never counted against the keyless allowance (its answer says so). With a key, \`key_status\` answers what the key may do.
+4. Verify with one unkeyed call: \`board_stats\` takes no arguments, answers with no key and is never counted against the keyless allowance (its answer says so). Its posting count is the whole board's, including the systems named in its \`excludedSources\`, which no tool returns; do not tell the person they can search that many (the figure an AI can search is on ${C.site}'s home page, dated). With a key, \`key_status\` answers what the key may do.
 
 ## Sign-in from chat apps (a rule, not today's state)
 
@@ -503,18 +583,24 @@ Windsurf (\`~/.codeium/windsurf/mcp_config.json\` — the legacy Cascade agent's
 
 ${indent(windsurfJson)}
 
-Claude (claude.ai, Claude Desktop) and ChatGPT have no config file: the person adds the address in the app's own dialog — the steps are on ${C.agentsPage} and in README.md.
+Claude (claude.ai, Claude Desktop) and ChatGPT have no config file: the person adds the address in the app's own dialog — the steps are on ${C.agentsPage} and in README.md. On ChatGPT Free they cannot: OpenAI's plan table (${C.chatgptPlanRule.url}, read ${C.chatgptPlanRule.read}) says "${C.chatgptPlanRule.quote}". Claude's free plan can add one custom connector.
 
 ## What the tools are
 
-Unkeyed (no key at all): ${list(ANON)}. Any free key adds: ${list(KEYED_READ)}.
+Unkeyed (no key at all): ${list(ANON)}. Any free key adds: ${list(KEYED_READ)} (\`tools/list\` never shows ${list(NEVER_LISTED)}; it answers on a key).
 A key whose email address was confirmed adds: ${list(PAID)}.
 
 ${jobIdSentence}
 
 ${C.withheldNote}
 
-Do not invent a posting, a salary or an employer fact the tools did not return. \`check_jobs_open\` re-verifies a shortlist cheaply before \`get_jobs\`. \`apply_myself\` helps the person apply themselves: ask them the factual questions, draft only what it marks \`draft_from_your_cv\`, and stop before Submit. Nothing is ever submitted for them.
+${visaSentence}
+
+Do not invent a posting, a salary or an employer fact the tools did not return. \`check_jobs_open\` re-verifies a shortlist cheaply before \`get_jobs\`.
+
+${applySentence}
+
+${applyRulesSentence}
 
 ## If a tool refuses
 
@@ -549,26 +635,27 @@ This plugin's \`.mcp.json\` registers \`${NAME}\` at \`${URL}\` and reads the ke
 
 3. Run \`/mcp\` and reconnect, then call \`key_status\` — it answers the tier, the requests left this minute, the calls left today and the fit scorings left today, with any blocker named.
 
-Never write the key into \`.mcp.json\`, a URL, or a file that is committed. If a keyed tool answers that sign-in through the server is not switched on, this connection holds no key and no sign-in: say that ${prose(ANON.map((n) => `\`${n}\``))} still answer, point at ${C.keyPage}, and stop. If ${prose(PAID.map((n) => `\`${n}\``))} is refused, name the gate: a key whose email address was confirmed (the free key the emailed link issues) scores ${C.fitFreePerDay} times a day, and an account with a paid plan ${C.fitFullPerDay} — never a price.
+Never write the key into \`.mcp.json\`, a URL, or a file that is committed. If a keyed tool answers that sign-in through the server is not switched on, this connection holds no key and no sign-in: say that ${prose(ANON.map((n) => `\`${n}\``))} still answer, point at ${C.keyPage}, and stop. If ${prose(PAID.map((n) => `\`${n}\``))} is refused, name the gate: a key whose email address was confirmed (the free key the emailed link issues) scores ${C.fitFreePerDay} times a day, and an account with a paid plan ${C.fitFullPerDay} — never a price. A key is not needed to search, read postings or apply: \`apply_myself\` answers with no key.
 `;
 
 const findJobsSkill = `---
 name: find-jobs
-description: Search the live ${C.displayName} for a person, verify the shortlist is still open, and only then discuss applying. Use for any job search, "is this posting still open", employer hiring record, or apply request.
+description: Search the live ${C.displayName} for a person, re-check that the shortlist is still open, read it, and help them apply themselves with apply_myself. Use for any job search, "is this posting still open", employer hiring record, or apply request.
 ---
 
-# Find jobs on the board
+# Find jobs on the board, and help the person apply
 
-Order of calls, and why:
+Every tool below answers with no key: ${list(ANON)}. Order of calls, and why:
 
-1. \`key_status\` first when a keyed tool is about to be called — it names the tier and any blocker, so nothing is discovered by refusal.
-2. \`search_jobs\` with the role read from the person's CV or words (never invented) and their location; read its disclosures (\`ignoredFilters\`, \`countUnavailable\`) back to them. Unkeyed, a search is one page of ${C.anonCaps.searchRows} rows.
-3. \`check_jobs_open\` on the shortlist before \`get_jobs\` — it re-verifies from the board's index, up to many ids per call, and names that basis.
-4. \`get_job\` or \`get_jobs\` for the full text of the ones that survived (\`fetch\` reads one posting with no key). ${jobIdSentence}
-5. \`employer_hiring_record\` for an employer's own record — per board, never summed, never a ranking; a takedown is a takedown, never a hire.
-6. \`apply_myself\` when the person wants to apply to one: it returns the employer's real application form where its hiring system publishes one (otherwise the posting's apply link), with who should answer each question. Ask the person the factual questions, draft only what it marks \`draft_from_your_cv\`, and stop before Submit — the person reads every answer and submits on the employer's own site. Nothing is ever submitted for them.
+1. \`search_jobs\` with the role read from the person's words, or from the CV they gave you in this conversation (never invented). Put the place in \`location\`, not in \`query\`, and send job titles and places, never CV text. Read its disclosures (\`ignoredFilters\`, \`countUnavailable\`) back to them. With no key, a search is one page of ${C.anonCaps.searchRows} rows, to offset ${C.anonCaps.maxOffset}.
+2. \`check_jobs_open\` on the shortlist (up to ${C.anonCaps.checkJobsOpenIds} ids a call with no key) before reading it in full — it answers from the board's index, not the employer's site at that instant, and names that basis.
+3. \`get_jobs\` or \`get_job\` for the full text of the ones still open (\`fetch\` is the same read in ChatGPT's research shape). ${jobIdSentence}
+4. \`employer_hiring_record\` or \`employer_growth\` for an employer's own record — per board, never summed, never a ranking; a takedown is a takedown, never a hire.
+5. \`apply_myself\` when the person picks a posting. ${applySentence}
 
-Rules: never invent a posting, salary or employer fact the tools did not return; show pay only when the card states it; say "unknown" when the tool does. Tools that need a key: name the gate (${C.keyPage} for a free key), never a price. A tool that answers "Sign-in through this server is not switched on yet" needs a key this connection does not hold: say so, name the unkeyed tools, and stop.
+${applyRulesSentence}
+
+Rules: never invent a posting, salary or employer fact the tools did not return; show pay only when the card states it; say "unknown" when the tool does. ${visaSentence} ${C.withheldNote} Tools that need a key (${list([...KEYED_READ, ...PAID])}): name the gate (${C.keyPage} for a free key), never a price. A tool that answers "Sign-in through this server is not switched on yet" needs a key this connection does not hold: say so, name the unkeyed tools, and stop.
 `;
 
 // -------------------------------------------------------------------- write

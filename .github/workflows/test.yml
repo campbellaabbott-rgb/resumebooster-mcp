@@ -1,5 +1,13 @@
 name: test
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  # Weekly, so a change on the site or the live server that this repo has
+  # not followed fails here even when nobody pushes: the mirror test reads the
+  # site's default branch, and check-live asks the live server.
+  schedule:
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -23,4 +31,10 @@ jobs:
       # No dependencies to install: the build, the schema check and the test
       # are plain node.
       - run: npm test
+        working-directory: resumebooster-mcp
+      # The README's tool bullets against the live tools/list (keyless; it
+      # reads production, so it runs on the schedule and by hand, not on
+      # every push).
+      - run: npm run check-live
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         working-directory: resumebooster-mcp

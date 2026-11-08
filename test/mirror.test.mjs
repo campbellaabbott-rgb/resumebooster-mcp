@@ -63,6 +63,24 @@ test("mcp.config.json is internally consistent", () => {
   assert.ok(C.freeKeyDailyQuota > C.anonCaps.otherPerConnection && C.freeKeyDailyQuota > C.anonCaps.chatgptPerPerson, "a key must raise the cap or the key page lies");
   assert.ok(C.fitFreePerDay > 0 && C.fitFullPerDay > C.fitFreePerDay, "a paid plan must raise the fit allowance");
   assert.ok(!/^(api[_-]?key|token|secret|password|auth)/i.test(C.keyEnvVar), "Claude Code reads credential-named env vars as empty in remote headers");
+  for (const n of [...C.neverListed, ...C.notOnChatGpt]) assert.ok(names.includes(n), `${n} (neverListed/notOnChatGpt) is not a tool`);
+  for (const n of C.retiredTools) assert.ok(!names.includes(n), `${n} is retired on the server and listed as a tool`);
+  for (const n of C.anonTools) assert.ok(!C.neverListed.includes(n) && !C.notOnChatGpt.includes(n), `${n} is unkeyed, so every caller's tools/list shows it`);
+  const vendorKeys = C.formVendors.map((v) => v.key);
+  for (const k of C.formVendorsOnChatGpt) assert.ok(vendorKeys.includes(k), `ChatGPT form vendor ${k} is not a form vendor`);
+  assert.match(C.chatgptPlanRule.read, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(C.chatgptPlanRule.url, "https://chatgpt.com/pricing");
+  assert.equal(C.passPage, undefined, "the Agent Pass is retired; no constant may point at its page");
+});
+
+test("the plugin, the marketplace, the extension and the registry entry carry one version, above the one the registry published", () => {
+  const semver = (v) => v.split(".").map(Number);
+  const above = (a, b) => { const [x, y] = [semver(a), semver(b)]; for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; };
+  const versions = [readJson(".claude-plugin/plugin.json").version, readJson(".claude-plugin/marketplace.json").version, readJson(".claude-plugin/marketplace.json").plugins[0].version, readJson("gemini-extension.json").version, readJson("server.json").version];
+  assert.deepEqual([...new Set(versions)], [C.version], "every manifest carries mcp.config.json's version");
+  // Registry versions are immutable and installed plugin copies only see a
+  // new version, so a corrected text must ship under a higher one.
+  assert.ok(above(C.version, C.registry.publishedVersion), `version ${C.version} must be above the registry's published ${C.registry.publishedVersion}`);
 });
 
 test("each manifest carries the one URL and the one name", () => {
@@ -137,7 +155,10 @@ test("the README's links, count and tool names come from the constants", () => {
   const vscode = `vscode:mcp/install?${encodeURIComponent(JSON.stringify({ name: C.serverName, type: "http", url: C.mcpUrl }))}`;
   assert.ok(readme.includes(vscode), "vscode link");
   assert.ok(readme.includes(`https://insiders.vscode.dev/redirect?url=${encodeURIComponent(vscode)}`), "vscode badge");
-  assert.ok(readme.includes(`Tools: ${C.tools.length} —`), "the count is the list's length");
+  assert.ok(readme.includes(`- Tools: ${C.tools.length} in all.`), "the count is the list's length");
+  const noKeyListed = C.tools.map((t) => t.name).filter((n) => C.anonTools.includes(n));
+  assert.ok(readme.includes(`  - With no key, \`tools/list\` lists ${C.anonTools.length}: ${noKeyListed.map((n) => `\`${n}\``).join(", ")}\n`), "the no-key bullet is what a keyless tools/list answers");
+  assert.ok(readme.includes(`  - Answered on a key, never listed: ${C.neverListed.map((n) => `\`${n}\``).join(", ")}\n`), "the never-listed bullet");
   for (const t of C.tools) assert.ok(readme.includes(`\`${t.name}\``), `README names ${t.name}`);
   for (const a of C.anonTools) assert.ok(readme.includes(a), `README names unkeyed ${a}`);
   // The unkeyed row prints the split the site's developer disclosure prints,
@@ -218,7 +239,8 @@ test("every generated markdown file spells no count, no price and no takedown-as
   // (perMinute.other), which is also the old tool count, so a stale "15 tools"
   // would pass. The build prints searchRows; the other three are the fields
   // this list named before the caps became nested (2026-11-07).
-  const allowedDigits = new Set([C.tools.length, C.anonTools.length, C.anonCaps.perAddressPerDay, C.anonCaps.hostPoolPerDay, C.anonCaps.globalPerDay, C.anonCaps.searchRows, C.freeKeyDailyQuota, C.fitFreePerDay, C.fitFullPerDay, C.anonAddressHashRetentionDays, C.freeKeyIdleRevokeDays].map(String));
+  // checkJobsOpenIds joined 2026-11-08: the find-jobs skill prints it.
+  const allowedDigits = new Set([C.tools.length, C.anonTools.length, C.anonCaps.perAddressPerDay, C.anonCaps.hostPoolPerDay, C.anonCaps.globalPerDay, C.anonCaps.searchRows, C.anonCaps.checkJobsOpenIds, C.freeKeyDailyQuota, C.fitFreePerDay, C.fitFullPerDay, C.anonAddressHashRetentionDays, C.freeKeyIdleRevokeDays].map(String));
   for (const f of md.filter((x) => x !== "docs-snapshot.md")) {
     const text = readText(f);
     assert.ok(!spelledCount.test(text), `${f} spells a count in words: ${spelledCount.exec(text)?.[0]}`);
@@ -229,10 +251,13 @@ test("every generated markdown file spells no count, no price and no takedown-as
       assert.ok(!forbidden.test(text), `${f} must not say ${forbidden}`);
     }
   }
-  // The retention the privacy paragraph states is the mirrored constant, and
-  // the constant is the one mcp_anon_check prunes at (checked cross-runtime
-  // below when the website repo is present).
-  assert.ok(readText("README.md").includes(`drops it after ${C.anonAddressHashRetentionDays} days`));
+  // The retention the privacy table states is the site's row, which names the
+  // mirrored constant, and the constant is the one mcp_anon_check and
+  // mcp_anon_check_v2 prune at (checked cross-runtime below when the website
+  // repo is present).
+  const address = C.privacyRows.find((r) => r.id === "address");
+  assert.ok(address.kept.includes(`kept for ${C.anonAddressHashRetentionDays} days`), "the address row names the retention constant");
+  assert.ok(readText("README.md").includes(`| ${address.what} | ${address.kept} |`), "the README's privacy table carries the address row word for word");
 });
 
 test("no file in the repo carries a key or a token", () => {
@@ -405,7 +430,7 @@ test("the hosts are in the owner's order (six, then the long tail), ids unique, 
   const { fill } = await import("../scripts/build.mjs");
   for (const h of [...C.hosts, ...C.moreHosts]) {
     assert.ok(h.steps.length >= 1 && h.steps.every((s) => s.length > 10), `${h.id}: steps`);
-    for (const t of [...h.steps, h.verify, h.signInOn ?? "", h.keyed ?? ""]) fill(t);
+    for (const t of [...h.steps, h.verify, h.signInOn ?? "", h.keyed ?? "", h.lead ?? ""]) fill(t);
     assert.ok(!/\b\d+ (?:tools|calls|rows|results)\b/.test([...h.steps, h.verify].join(" ")), `${h.id}: a typed number in a step`);
     // The first step names no jargon a newcomer has not been given.
     // A vendor's own bold label (**Streamable HTTP** is Cline's transport
@@ -422,6 +447,139 @@ test("no forbidden label in the published instructions (labels no vendor doc pri
       assert.ok(!bad.test(text), `${f} says ${bad}`);
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// W0 (connect/apply audit 2026-11-07: APPLY-1107-04, PLT-1107-05, PLT-1107-06,
+// GEO-1107-01): the published files had sold the retired apply agent, listed
+// its retired tools, walked ChatGPT users through a developer-mode switch and
+// never named apply_myself. These pin what replaced them.
+
+const MANIFESTS = [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json", "gemini-extension.json", "server.json"];
+// What the owner's rules forbid any published file to say (2026-11-07): the
+// retired products, the retired tools, a developer-mode step, a price, or
+// that we apply for anyone, or that a key is what opens reading. Returns the
+// offending matches.
+const staleClaims = (text) => {
+  const found = [];
+  for (const n of C.retiredTools) if (new RegExp(`\\b${n}\\b`).test(text)) found.push(n);
+  for (const re of [/Agent plan/i, /Agent Pass/i, /\blive pass\b/i, /agents\/pass/, /Apply Assistant/i, /developer mode/i, /\$\d/, /applying is paid/i, /\bwe (?:apply|submit|send)\b/i, /\bscan packs?\b/i, /opens every read tool/i]) {
+    const m = re.exec(text);
+    if (m) found.push(m[0]);
+  }
+  return found;
+};
+
+test("no published file or manifest sells a retired product, names a retired tool, asks for developer mode, prints a price or says reading needs a key", () => {
+  for (const f of [...PUBLISHED(), ...MANIFESTS]) assert.deepEqual(staleClaims(readText(f)), [], `${f} says something the owner's rules forbid`);
+});
+
+test("teeth: the stale-claim reader reports each forbidden phrase pasted into the README", () => {
+  const pasted = ["request_application", "Agent plan", "Agent Pass", "a live pass", "https://resumebooster.work/agents/pass", "the Apply Assistant", "turn on Developer mode", "$29", "Applying is paid", "we apply for you", "scan packs", "a free key opens every read tool"];
+  for (const p of pasted) assert.ok(staleClaims(`${readText("README.md")}\n${p}\n`).length > 0, `the reader missed "${p}"`);
+});
+
+test("the ChatGPT steps are OpenAI's documented flow, with its plan rule quoted, linked and dated, and send ChatGPT Free users to Claude's free plan", () => {
+  const readme = readText("README.md");
+  const section = readme.slice(readme.indexOf("### ChatGPT"), readme.indexOf("### Claude Code"));
+  assert.ok(section.length > 100, "the README has a ChatGPT section");
+  assert.ok(section.includes(`"${C.chatgptPlanRule.quote}"`), "the plan rule, quoted");
+  assert.ok(section.includes(`(${C.chatgptPlanRule.url}, read ${C.chatgptPlanRule.read})`), "its link and the day it was read");
+  assert.ok(section.includes("Claude's free plan can add one custom connector"), "the pointer to Claude's free plan");
+  assert.ok(section.indexOf(C.chatgptPlanRule.quote) < section.indexOf("\n1. "), "the plan rule comes before the first step");
+  assert.ok(!/developer mode|Security and login/i.test(section), "no developer-mode switch");
+  assert.ok(section.includes(`with no sign-in there are ${C.anonTools.length}.`), "the tool count a keyless ChatGPT sees, from the constants");
+  const pricing = C.docsSnapshot.find((d) => d.url === C.chatgptPlanRule.url);
+  assert.ok(pricing && pricing.sentences.includes(C.chatgptPlanRule.quote) && pricing.fetched === C.chatgptPlanRule.read, "the quote is in the docs snapshot, fetched the day it says");
+  const freeClaude = C.docsSnapshot.find((d) => d.url.startsWith("https://claude.com/docs/connectors/custom/remote-mcp#"));
+  assert.ok(freeClaude?.sentences.some((s) => s.includes("On the Free plan, you can add one custom connector.")), "Claude's one-connector rule is quoted in the snapshot");
+  // Every bold label in the ChatGPT steps is one OpenAI's connect page prints.
+  const connect = C.docsSnapshot.find((d) => d.url === "https://developers.openai.com/apps-sdk/deploy/connect-chatgpt");
+  assert.ok(!connect.sentences.some((s) => /developer mode/i.test(s)), "the snapshot no longer rests a step on developer mode");
+  const said = connect.sentences.join(" ");
+  const steps = section.slice(section.indexOf("\n1. "), section.indexOf("\nWhen sign-in is on"));
+  for (const [, label] of steps.matchAll(/\*\*([^*]+)\*\*/g)) {
+    if (["+", "@", C.connectorName].includes(label)) continue;
+    assert.ok(said.includes(label), `ChatGPT step label **${label}** is not on OpenAI's connect page as snapshotted`);
+  }
+});
+
+test("the Claude sign-in line never says a tool that answers with no key needs an account", async () => {
+  const { fill } = await import("../scripts/build.mjs");
+  const line = fill(C.hosts.find((h) => h.id === "claude").signInOn);
+  for (const stale of [/open a posting/i, /check a shortlist/i]) assert.ok(!stale.test(line), `the line says ${stale}, which answers with no key`);
+  for (const n of C.anonTools) assert.ok(!line.includes(n), `the line names ${n}, an unkeyed tool`);
+  assert.ok(line.includes("Searching, reading postings and applying yourself never need it."));
+});
+
+test("the README's apply section is the free path where the person submits, under the server's own rules", () => {
+  const readme = readText("README.md");
+  const section = readme.slice(readme.indexOf("## Applying yourself"), readme.indexOf("## Sign-in"));
+  assert.ok(section.includes("`apply_myself` is how a person applies, free and with no key"));
+  assert.ok(section.includes("never submits anything for anyone"));
+  assert.ok(section.includes(C.applyRules), "the rules, word for word");
+  for (const v of C.formVendors) assert.ok(section.includes(v.label), `names ${v.label}`);
+  const pair = C.formVendors.filter((v) => C.formVendorsOnChatGpt.includes(v.key)).map((v) => v.label);
+  assert.ok(section.includes(`Inside ChatGPT it reads the form only for ${pair.join(" or ")}.`));
+  for (const f of ["llms-install.md", "skills/find-jobs/SKILL.md"]) {
+    assert.ok(readText(f).includes(C.applyRules), `${f} carries the rules word for word`);
+    assert.ok(readText(f).includes("`apply_myself` is how a person applies"), `${f} names the apply path`);
+  }
+});
+
+test("the find-jobs skill starts with a search, not key_status, and names only tools the server has", () => {
+  const skill = readText("skills/find-jobs/SKILL.md");
+  assert.match(skill, /^1\. `search_jobs`/m, "step 1 is the search");
+  assert.ok(!/^\d\. `key_status`/m.test(skill), "no step leads with key_status");
+  // A flag the server's apply answers carry, and a field the person writes in
+  // their own host's config; neither is a tool.
+  const nonTools = ["draft_from_your_cv", "bearer_token_env_var"];
+  const tools = C.tools.map((t) => t.name);
+  for (const f of PUBLISHED()) {
+    const prose = readText(f).replace(/```[\s\S]*?```/g, "");
+    for (const [, word] of prose.matchAll(/`([a-z]+(?:_[a-z]+)+)`/g)) {
+      assert.ok(tools.includes(word) || nonTools.includes(word), `${f} names \`${word}\`, which is not a tool the server has`);
+    }
+  }
+});
+
+test("the README gives the one-step plugin install with its version floor, and says how a plugin copy takes a new version", () => {
+  const readme = readText("README.md");
+  assert.ok(readme.includes(`claude plugin install ${C.serverName} --marketplace ${C.repoOwner}/${C.repoName}`));
+  assert.ok(readme.includes("(Claude Code 2.1.292 or newer)"));
+  assert.ok(readme.includes(`/plugin install ${C.serverName} --marketplace ${C.repoOwner}/${C.repoName}\` does both in one line`));
+  assert.ok(readme.includes(`claude plugin update ${C.serverName}@${C.serverName}`));
+  const doc = C.docsSnapshot.find((d) => d.url === "https://code.claude.com/docs/en/discover-plugins");
+  const said = doc.sentences.join(" ");
+  for (const s of ["Requires Claude Code v2.1.292 or later.", "Requires Claude Code v2.1.275 or later.", "**Off by default**", "claude plugin update <plugin>@<marketplace>"]) assert.ok(said.includes(s), `the snapshot lacks ${s}`);
+});
+
+test("the verify line says board_stats counts postings no tool returns, and where the searchable figure is", () => {
+  const readme = readText("README.md");
+  const line = readme.split("\n").find((l) => l.startsWith("**Verify:**"));
+  assert.ok(line.includes("`excludedSources`") && line.includes("so your AI can search fewer"));
+  assert.ok(line.includes(`The home page, ${C.site}, prints the number your AI can search and the day it was counted.`));
+  assert.ok(readText("llms-install.md").includes("do not tell the person they can search that many"));
+});
+
+// The two shapes the old pages used: an order to leave the suffix off, and
+// the suffix named as the cause of a failure.
+const mcpSuffixClaims = (text) => [/do not (?:add|append) `\/mcp`/, /`\/mcp` was added to it/, /`\/mcp` appended to the address/].filter((re) => re.test(text)).map(String);
+
+test("no published line tells the reader to leave /mcp off or blames it, since the server answers either way", () => {
+  for (const f of PUBLISHED()) assert.deepEqual(mcpSuffixClaims(readText(f)), [], `${f} tells the reader the /mcp suffix breaks the address`);
+});
+
+test("teeth: the /mcp reader reports each old shape pasted into the README", () => {
+  const readme = readText("README.md");
+  assert.equal(mcpSuffixClaims(`${readme}\nPaste it exactly as it is (do not add \`/mcp\`).\n`).length, 1);
+  assert.equal(mcpSuffixClaims(`${readme}\n| x | The address was mistyped, \`/mcp\` was added to it. | y |\n`).length, 1);
+  assert.equal(mcpSuffixClaims(`${readme}\n| x | Wrong transport, or \`/mcp\` appended to the address. | y |\n`).length, 1);
+});
+
+test("the allowance row starts with the site's own words for where a key goes", () => {
+  const row = C.troubleshooting.find((r) => r.symptom === "The unkeyed allowance is spent");
+  assert.ok(row.fix.includes("In Claude Code"), "the site's row says In Claude Code; the README adds the other apps that send a header");
 });
 
 test("every troubleshooting row is the server's string or cites a doc in the snapshot, and its symptom is rendered", () => {
@@ -544,7 +702,7 @@ const inCi = !!process.env.CI && !process.env.MIRROR_SKIP_OK;
 test(
   "the tool list, unkeyed tier, caps and quota match resume-signal-pro/src/config/mcp-tools.ts",
   { skip: existsSync(mirrorFile) || inCi ? false : `website repo not beside this one (${mirrorFile}); mcp.config.json.mirror.at says which commit the list was copied from` },
-  () => {
+  async () => {
     assert.ok(existsSync(mirrorFile), `CI must check the website repo out beside this one (${mirrorFile}) — the mirror is unenforced otherwise; MIRROR_SKIP_OK=1 skips knowingly`);
     const ts = stripComments(readFileSync(mirrorFile, "utf8"));
     const block = ts.match(/export const MCP_TOOLS[^=]*=\s*\[([\s\S]*?)\n\];/);
@@ -598,6 +756,58 @@ test(
     const prune = sql.match(/DELETE FROM public\.mcp_anon_rate r WHERE r\.day < v_today - (\d+);/);
     assert.ok(prune, "mcp_anon_check's prune statement not found — RE-ANCHOR");
     assert.equal(C.anonAddressHashRetentionDays, Number(prune[1]), "the README's retention drifted from mcp_anon_check's prune");
+    // The meter that runs today is mcp_anon_check_v2; its prune is the same day count.
+    const definingV2 = readdirSync(migDir).filter((n) => n.endsWith(".sql")).sort()
+      .filter((n) => readFileSync(join(migDir, n), "utf8").includes("FUNCTION public.mcp_anon_check_v2("));
+    assert.ok(definingV2.length > 0, "no migration defines mcp_anon_check_v2");
+    const pruneV2 = readFileSync(join(migDir, definingV2.at(-1)), "utf8").replace(/--[^\n]*/g, "").match(/DELETE FROM public\.mcp_anon_rate r WHERE r\.day < v_today - (\d+);/);
+    assert.ok(pruneV2, "mcp_anon_check_v2's prune statement not found — RE-ANCHOR");
+    assert.equal(C.anonAddressHashRetentionDays, Number(pruneV2[1]), "the README's retention drifted from mcp_anon_check_v2's prune");
+
+    // The privacy rows are the site's MCP_PRIVACY_ROWS, word for word, by id.
+    const privacySrc = stripComments(readFileSync(join(siblingDir, "src", "config", "mcp-privacy.ts"), "utf8"));
+    for (const row of C.privacyRows) {
+      const obj = privacySrc.match(new RegExp(`\\{\\s*id: "${row.id}",([\\s\\S]*?)\\n  \\}`));
+      assert.ok(obj, `MCP_PRIVACY_ROWS has no row ${row.id} — RE-ANCHOR`);
+      const what = obj[1].match(/what: "([^"]+)"/);
+      const kept = obj[1].match(/kept: "([^"]+)"/);
+      assert.ok(what && kept, `row ${row.id}'s what/kept are not plain strings — RE-ANCHOR`);
+      assert.equal(row.what, what[1], `privacy row ${row.id}: what drifted from the site`);
+      assert.equal(row.kept, kept[1], `privacy row ${row.id}: kept drifted from the site`);
+    }
+
+    // The form vendors and the ChatGPT pair are the site's MCP_FORM_VENDORS
+    // and MCP_FORM_VENDORS_ON_CHATGPT.
+    const vendors = ts.match(/export const MCP_FORM_VENDORS:[^=]*=\s*\[([\s\S]*?)\];/);
+    assert.ok(vendors, "MCP_FORM_VENDORS not found — RE-ANCHOR");
+    assert.deepEqual(C.formVendors, [...vendors[1].matchAll(/\{ key: "([^"]+)", label: "([^"]+)" \}/g)].map((m) => ({ key: m[1], label: m[2] })), "formVendors drifted from the site's MCP_FORM_VENDORS");
+    const onChatGpt = ts.match(/export const MCP_FORM_VENDORS_ON_CHATGPT:[^=]*=\s*\[([^\]]*)\]/);
+    assert.ok(onChatGpt, "MCP_FORM_VENDORS_ON_CHATGPT not found — RE-ANCHOR");
+    assert.deepEqual(C.formVendorsOnChatGpt, [...onChatGpt[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]));
+
+    // The first question every page suggests is the site's MCP_EXAMPLE_QUESTION.
+    const testQuery = ts.match(/export const MCP_TEST_QUERY\s*=\s*"([^"]+)"/);
+    assert.ok(testQuery, "MCP_TEST_QUERY not found — RE-ANCHOR");
+    assert.equal(C.testQuery, testQuery[1]);
+    const example = ts.match(/export const MCP_EXAMPLE_QUESTION\s*=\s*`([^`]+)`/);
+    assert.ok(example, "MCP_EXAMPLE_QUESTION not found — RE-ANCHOR");
+    const { FILL: filled, fill: fillText } = await import("../scripts/build.mjs");
+    assert.equal(filled.exampleQuestion, example[1].replace("${MCP_CONNECTOR_NAME}", C.connectorName).replace("${MCP_TEST_QUERY}", C.testQuery));
+
+    // The three seeker hosts' "how you know it worked" lines are the site's.
+    const hostsBlock = ts.slice(ts.indexOf("export const MCP_HOSTS"), ts.indexOf("export const MCP_MORE_HOSTS"));
+    const siteFill = (s) => s
+      .replace(/\$\{MCP_CONNECTOR_NAME\}/g, C.connectorName).replace(/\$\{MCP_ANON_CAPS\.searchRows\}/g, String(C.anonCaps.searchRows))
+      .replace(/\$\{MCP_SERVER_KEY\}/g, C.serverName).replace(/\$\{ASK_STATS\}/g, "call board_stats").replace(/\$\{ASK_KEY\}/g, "call key_status");
+    for (const id of ["claude", "chatgpt", "claude-code"]) {
+      const at = hostsBlock.indexOf(`id: "${id}",`);
+      assert.ok(at >= 0, `MCP_HOSTS has no ${id} — RE-ANCHOR`);
+      const verify = hostsBlock.slice(at).match(/verify:\s*`((?:[^`\\]|\\.)*)`/);
+      assert.ok(verify, `${id}'s verify line not found — RE-ANCHOR`);
+      const site = siteFill(verify[1].replace(/\\`/g, "`"));
+      assert.ok(!site.includes("${"), `${id}'s verify reads a constant this check does not fill — RE-ANCHOR`);
+      assert.equal(fillText(C.hosts.find((h) => h.id === id).verify), site, `${id}'s verify line drifted from the site's`);
+    }
 
     // connect3: the host ids and the sign-in meta key mirror the page lane's
     // MCP_HOSTS[].id / MCP_SIGN_IN_META_KEY. Until that commit lands on the
@@ -644,6 +854,13 @@ test(
       return [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
     };
     assert.deepEqual(C.anonTools, listIn("ANON_TOOLS"), "anonTools drifted from agent-mcp's ANON_TOOLS");
+    assert.deepEqual(C.retiredTools, listIn("RETIRED_TOOLS"), "retiredTools drifted from agent-mcp's RETIRED_TOOLS");
+    assert.deepEqual(C.neverListed, listIn("NEVER_LISTED"), "neverListed drifted from agent-mcp's NEVER_LISTED");
+    assert.deepEqual(C.notOnChatGpt, listIn("NOT_ON_CHATGPT"), "notOnChatGpt drifted from agent-mcp's NOT_ON_CHATGPT");
+    // The apply rules are the server's HONESTY_RULES, word for word.
+    const honesty = serverSrc.match(/const HONESTY_RULES\s*=\s*((?:\s*"(?:[^"\\]|\\.)*"\s*\+?)+);/);
+    assert.ok(honesty, "HONESTY_RULES not found in agent-mcp — RE-ANCHOR");
+    assert.equal(C.applyRules, [...honesty[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => JSON.parse(`"${m[1]}"`)).join(""), "applyRules drifted from agent-mcp's HONESTY_RULES");
     for (const n of listIn("RETIRED_TOOLS")) {
       assert.ok(!C.tools.some((t) => t.name === n), `${n} is retired on the server (RETIRED_TOOLS) but listed here`);
       for (const f of PUBLISHED()) assert.ok(!new RegExp(`\\b${n}\\b`).test(readText(f)), `${f} names ${n}, which the server has retired`);

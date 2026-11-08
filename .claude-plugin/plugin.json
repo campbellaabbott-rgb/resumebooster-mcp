@@ -1,8 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "resumebooster",
-  "version": "1.0.0",
-  "description": "Job search over employers' own hiring systems. Search with no key; a free key opens every read tool.",
+  "version": "1.1.0",
+  "description": "Job search over employers' own hiring systems. Search, read and apply yourself with no key.",
   "author": {
     "name": "Resume Booster",
     "url": "https://resumebooster.work"
