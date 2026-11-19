@@ -534,6 +534,34 @@ test("the README's apply section is the free path where the person submits, unde
   }
 });
 
+// Which of `keys` a text names as a form reader. Every published form
+// sentence lists its readers BEFORE the phrase ("when the posting's hiring
+// system is Greenhouse, …, it returns the employer's real application form"),
+// so the vendor is looked for on either side of "real application form"
+// within one sentence on one line, and in ChatGPT's "reads the form only for"
+// pair. A vendor named as a posting link ("the employer's own Greenhouse,
+// Lever or Ashby posting link.") is not a form reader and is not reported.
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const formReadersNamed = (text, keys) =>
+  keys.filter((k) => {
+    const v = `\\b${escapeRe(k)}\\b`;
+    return [`${v}[^.\\n]*real application form`, `real application form[^.\\n]*${v}`, `reads the form only for [^.\\n]*${v}`]
+      .some((re) => new RegExp(re, "i").test(text));
+  });
+
+test("teeth: the form-reader check reports a stopped reader in the form sentence as the pages wrote it, and never one named as a posting link", () => {
+  const readme = readText("README.md");
+  // The sentence README.md, llms-install.md and the find-jobs skill carried
+  // at bc54f12, before OD14-ASHBY-1 took Ashby off the connector's readers.
+  const before = "`apply_myself` is how a person applies, free and with no key: when the posting's hiring system is Greenhouse, Ashby, Recruitee, Breezy, Pinpoint, Paylocity, Workable, Teamtailor, Lever or BambooHR, it returns the employer's real application form, every question with its options and who should answer it; otherwise it returns the posting's apply link.";
+  assert.deepEqual(formReadersNamed(`${readme}\n${before}\n`, ["ashby"]), ["ashby"], "the reader missed Ashby listed before \"real application form\"");
+  assert.deepEqual(formReadersNamed(`${readme}\nInside ChatGPT it reads the form only for Greenhouse or Ashby.\n`, ["ashby"]), ["ashby"], "the reader missed Ashby in ChatGPT's pair");
+  assert.deepEqual(formReadersNamed(`${readme}\nWhen the employer uses Greenhouse or Ashby, it returns the employer's real application form.\n`, ["ashby"]), ["ashby"], "the reader missed /agents' own form-sentence shape");
+  const link = "a `https://resumebooster.work/jobs/posting/` page, or the employer's own Greenhouse, Lever or Ashby posting link.";
+  assert.deepEqual(formReadersNamed(`${link}\n${before}`, ["workday"]), [], "a vendor the sentence does not name is reported");
+  assert.deepEqual(formReadersNamed(link, ["ashby"]), [], "a posting link is read as a form reader");
+});
+
 test("the find-jobs skill starts with a search, not key_status, and names only tools the server has", () => {
   const skill = readText("skills/find-jobs/SKILL.md");
   assert.match(skill, /^1\. `search_jobs`/m, "step 1 is the search");
@@ -603,14 +631,18 @@ test("the allowance row names no key and no app, as the site's row does, because
 // a seeker to a terminal app for a key, and ChatGPT's sign-in promised
 // unconditionally. And what HO-1 took off it (the owner's check of Claude's
 // dialog, 2026-11-18): the step that kept whatever authentication Claude
-// detected. /agents now names one choice, Sign in when needed, as a plain
-// step (the site's CLAUDE_AUTH_STEP), which the mirror test holds word for word.
+// detected, and the sign-in rule's aside that a connector added while sign-in
+// was off may need removing and adding again (the site's MCP_SIGN_IN_NEUTRAL
+// dropped it; with Sign in when needed chosen, step 6 says you do not add the
+// connector again). /agents now names one choice, Sign in when needed, as a
+// plain step (the site's CLAUDE_AUTH_STEP), which the mirror test holds word
+// for word, as it holds the sign-in rule to MCP_SIGN_IN_NEUTRAL.
 const w2RemovedCopy = (text) =>
-  [/call search_jobs with query/, /If Claude asks about \*\*Authentication\*\*/, /\*\*Register automatically\*\*/, /Do not choose \*\*No sign-in\*\*/, /To use every tool, connect from/, /ChatGPT shows its sign-in/, /Keep them as they are and click/]
+  [/call search_jobs with query/, /If Claude asks about \*\*Authentication\*\*/, /\*\*Register automatically\*\*/, /Do not choose \*\*No sign-in\*\*/, /To use every tool, connect from/, /ChatGPT shows its sign-in/, /Keep them as they are and click/, /added while it was off may need removing and adding again/]
     .filter((re) => re.test(text))
     .map(String);
 
-test("no published file carries copy the site's W2 or HO-1 took off /agents: the tool-call first question, the conditional sign-in choice, the key push in a chat row, ChatGPT's promised sign-in, the kept detected settings", () => {
+test("no published file carries copy the site's W2 or HO-1 took off /agents: the tool-call first question, the conditional sign-in choice, the key push in a chat row, ChatGPT's promised sign-in, the kept detected settings, the re-add aside in the sign-in rule", () => {
   for (const f of PUBLISHED()) assert.deepEqual(w2RemovedCopy(readText(f)), [], `${f} still says what /agents no longer says`);
   const off = C.troubleshooting.find((r) => r.state === "off");
   assert.ok(off.fix.startsWith("Everything you need to search, read postings in full and apply yourself works with no sign-in."), `the sign-in-off row says what works first: ${off.fix}`);
@@ -626,6 +658,7 @@ test("teeth: the W2 reader reports each removed line pasted into the README", ()
     "To use every tool, connect from Claude Code, Cursor or VS Code with a free key.",
     "if a tool needs your account, ChatGPT shows its sign-in for Resume Booster",
     "Claude shows the authentication settings it detected. Keep them as they are and click **Continue**.",
+    "Claude, Claude Desktop and ChatGPT have no field for a key. They can sign you in instead — but only while the server's sign-in service is switched on, and a connector added while it was off may need removing and adding again first.",
   ];
   for (const p of pasted) assert.ok(w2RemovedCopy(`${readme}\n${p}\n`).length > 0, `the reader missed "${p}"`);
 });
@@ -826,6 +859,18 @@ test(
     assert.ok(withheld, "MCP_WITHHELD_NOTE not found");
     assert.equal(C.withheldNote, withheld[1], "withheldNote drifted from the site's MCP_WITHHELD_NOTE");
 
+    // The sign-in rule is the site's MCP_SIGN_IN_NEUTRAL, word for word, less
+    // its closing "on this page" pointer (the install pages name the page and
+    // hand the curl instead); its unkeyed names are the pages' own list.
+    const neutral = ts.match(/export const MCP_SIGN_IN_NEUTRAL\s*=\s*`([^`]+)`;/);
+    assert.ok(neutral, "MCP_SIGN_IN_NEUTRAL not found as a template — RE-ANCHOR");
+    const onThisPage = " Press **Test the server** on this page for today's state.";
+    assert.ok(neutral[1].endsWith(onThisPage), "MCP_SIGN_IN_NEUTRAL no longer ends with its on-this-page pointer — RE-ANCHOR");
+    const anonProse = C.anonTools.map((n) => `\`${n}\``).reduce((s, n, i, a) => (i === 0 ? n : `${s}${i === a.length - 1 ? " and " : ", "}${n}`), "");
+    const signInRule = neutral[1].slice(0, -onThisPage.length).replace("${anonNames()}", anonProse);
+    assert.ok(!signInRule.includes("${"), "MCP_SIGN_IN_NEUTRAL reads a constant this check does not fill — RE-ANCHOR");
+    for (const f of ["README.md", "llms-install.md"]) assert.ok(readText(f).includes(`${signInRule} Today's state:`), `${f}: the sign-in rule drifted from the site's MCP_SIGN_IN_NEUTRAL`);
+
     const quota = ts.match(/MCP_FREE_KEY_DAILY_QUOTA\s*=\s*(\d+)/);
     assert.ok(quota, "MCP_FREE_KEY_DAILY_QUOTA not found");
     assert.equal(C.freeKeyDailyQuota, Number(quota[1]));
@@ -887,7 +932,7 @@ test(
     assert.deepEqual(C.formVendors.map((v) => v.key).sort(), serverVendors("FORM_READER_VENDORS").filter((k) => !notRead.includes(k)).sort(), "formVendors names a system the connector does not read, or leaves out one it does (FORM_READER_VENDORS less FORM_NOT_READ_HERE)");
     const siteNotRead = ts.match(/export const MCP_FORM_NOT_READ_HERE[^=]*=\s*\[([^\]]*)\]/);
     if (siteNotRead) assert.deepEqual([...siteNotRead[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]).sort(), [...notRead].sort(), "the site's MCP_FORM_NOT_READ_HERE and agent-mcp's FORM_NOT_READ_HERE disagree — RE-ANCHOR");
-    for (const k of notRead) for (const f of PUBLISHED()) assert.ok(!new RegExp(`real application form[^.]*\\b${k}\\b`, "i").test(readText(f)), `${f} names ${k} as a form reader, which the connector does not read`);
+    for (const f of PUBLISHED()) assert.deepEqual(formReadersNamed(readText(f), notRead), [], `${f} names a form reader the connector does not read (agent-mcp's FORM_NOT_READ_HERE)`);
     const onChatGpt = ts.match(/export const MCP_FORM_VENDORS_ON_CHATGPT:[^=]*=\s*\[([^\]]*)\]/);
     assert.ok(onChatGpt, "MCP_FORM_VENDORS_ON_CHATGPT not found — RE-ANCHOR");
     assert.deepEqual(C.formVendorsOnChatGpt, [...onChatGpt[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]));

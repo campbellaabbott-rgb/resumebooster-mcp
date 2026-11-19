@@ -17,7 +17,7 @@ You are configuring a REMOTE MCP server. There is nothing to download, build or 
 
 ## Sign-in from chat apps (a rule, not today's state)
 
-Claude, Claude Desktop and ChatGPT have no field for a key. They can sign you in instead — but only while the server's sign-in service is switched on, and a connector added while it was off may need removing and adding again first. When it is off, a tool that needs your account answers in words (no Connect card), and `board_stats`, `search_jobs`, `search`, `fetch`, `get_job`, `get_jobs`, `check_jobs_open`, `employer_hiring_record`, `employer_growth` and `apply_myself` still answer. Today's state: press **Test the server** on https://resumebooster.work/agents, or run
+Claude and ChatGPT have no field for a key. They sign you in instead — but only while the server's sign-in service is switched on. When it is off, a tool that needs your account answers in words (no Connect card), and `board_stats`, `search_jobs`, `search`, `fetch`, `get_job`, `get_jobs`, `check_jobs_open`, `employer_hiring_record`, `employer_growth` and `apply_myself` still answer. Today's state: press **Test the server** on https://resumebooster.work/agents, or run
 
     curl -s -X POST https://bwhdazbotpblihdxcmho.supabase.co/functions/v1/agent-mcp -H 'content-type: application/json' -H 'mcp-protocol-version: 2025-06-18' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}' | jq '.result._meta["work.resumebooster/sign-in"].state'
 
