@@ -23,15 +23,15 @@
   "registrySchema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "registryDomain": "resumebooster.work",
   "registry": {
-    "$comment": "The entry is LIVE: GET recordUrl answered status active, publishedAt and updatedAt 2026-09-18T13:43:10Z, isLatest true, version 1.0.0 (read 2026-11-08). That 1.0.0 is the September text: its description says a free key opens every read tool and its header description names four unkeyed tools. server.json here is 1.1.0 because registry versions are immutable (a corrected entry needs a new version); the owner publishes it (w0-publish-steps.md), never this repo's tooling. listingUrl is the registry's own page with its search box filled (the page reads ?q=); recordUrl is the entry as the registry API serves it. Set listed to false and the README goes back to saying the name is reserved.",
+    "$comment": "The entry is LIVE: GET recordUrl answered version 1.1.0, status active, publishedAt and updatedAt 2026-11-17T19:52:03Z, isLatest true (read 2026-11-19). The September 1.0.0 is still listed beside it, status active and isLatest false (the registry's search answers both): its description says a free key opens every read tool and its header description names four unkeyed tools, so mirrors that read every version still show it. When the owner next publishes, deprecate 1.0.0 too if the publisher supports it (GEO-7). server.json here is 1.1.1 because registry versions are immutable and installed plugin copies only take a new version: 1.1.1 carries the 2026-11-19 re-sync (the skills name the nine form readers the connector uses, without Ashby). The registry's 1.1.0 text (description, header) is unchanged by it, so publishing 1.1.1 is optional; the owner publishes it (w0-publish-steps.md), never this repo's tooling. listingUrl is the registry's own page with its search box filled (the page reads ?q=); recordUrl is the entry as the registry API serves it. Set listed to false and the README goes back to saying the name is reserved.",
     "listed": true,
-    "publishedAt": "2026-09-18",
-    "checkedAt": "2026-11-08",
-    "publishedVersion": "1.0.0",
+    "publishedAt": "2026-11-17",
+    "checkedAt": "2026-11-19",
+    "publishedVersion": "1.1.0",
     "listingUrl": "https://registry.modelcontextprotocol.io/?q=work.resumebooster/jobs",
     "recordUrl": "https://registry.modelcontextprotocol.io/v0/servers/work.resumebooster%2Fjobs/versions/latest"
   },
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Job search over employers' own hiring systems. Search, read and apply yourself with no key.",
   "serverInfoName": "resumebooster-job-board",
   "connectorName": "Resume Booster",
@@ -41,9 +41,9 @@
   "authorizationServerMetadataUrl": "https://bwhdazbotpblihdxcmho.supabase.co/.well-known/oauth-authorization-server/auth/v1",
   "mirror": {
     "of": "resume-signal-pro/src/config/mcp-tools.ts",
-    "at": "fix/seo-connect-fe@ba8e8a8d + fix/connect-mcp@af016311",
-    "serverBuild": "agent-mcp.2026-11-08.1",
-    "note": "Re-synced 2026-11-08 to the seo-connect deploy, BEFORE it ships: the site's W2 copy from fix/seo-connect-fe at ba8e8a8d (src/config/mcp-tools.ts: the first question in a person's words, Claude's dialog as its help article walks it with the detected settings kept, ChatGPT's sign-in line that promises nothing OpenAI does not document, the chat rows that send no seeker to a key) and the server strings of agent-mcp 2026-11-08.1 from fix/connect-mcp at af016311 (HONESTY_RULES rule 3, job-link.ts reading a pasted posting link, FORM_READER_VENDORS reading ten systems' forms; the site holds the five new ones in MCP_FORM_VENDORS_AFTER_DEPLOY until the frontend publish after that deploy), read together through their merge (git merge-tree, which conflicts only in docs/deploy-ledger.json). serverBuild is that build: the mirror test fails while the site's agent-mcp is older (do not push before the site merges it), and npm run check-live fails while the live x-fn-build is older (do not publish before the deploy verifies; live read agent-mcp.2026-11-03.1 on 2026-11-08). The previous copy was the site's main aa2e45cb, matching agent-mcp.2026-11-03.1. The wave-4 tier follows it: apply_myself is a tool, the apply agent's tools are retired (retiredTools, the server's RETIRED_TOOLS, listed to nobody), every read tool but key_status and debug_search answers with no key, anonCaps is the whole MCP_ANON_CAPS (the allowance split by platform; perAddressPerDay, hostPoolPerDay and globalPerDay are the site's legacy names, kept there for its prerender and read by nothing here), fit_resume is a confirmed free key's daily allowance (fitFreePerDay, fitFullPerDay), and addressGloss is the site's count-free MCP_ADDRESS_GLOSS word for word. neverListed and notOnChatGpt are the server's NEVER_LISTED and NOT_ON_CHATGPT (what tools/list leaves out), applyRules is its HONESTY_RULES word for word, formVendors and formVendorsOnChatGpt are the site's MCP_FORM_VENDORS labels and MCP_FORM_VENDORS_ON_CHATGPT, and privacyRows are rows of the site's MCP_PRIVACY_ROWS word for word (the search row is computed there from a flag and a date, so the README links it instead of copying it). hosts[].id order, signInMetaKey, withheldNote and the server-string rows follow it; re-stamp `at` when any of those files changes"
+    "at": "main@d2b451fe",
+    "serverBuild": "agent-mcp.2026-11-21.2",
+    "note": "Re-synced 2026-11-22 to the site main at d2b451fe, whose agent-mcp.2026-11-21.2 is live (x-fn-build read 2026-11-22): withheldNote is the site OD16 wording (U.S. federal announcements are handed on once the agency statement of who may apply is stored; SmartRecruiters alone is withheld). Before that, re-synced 2026-11-19 to the site's main at f3d7859a, whose agent-mcp.2026-11-18.2 is live (x-fn-build read 2026-11-19): formVendors leaves Ashby out (the connector reads FORM_READER_VENDORS less its FORM_NOT_READ_HERE, Ashby since OD14-ASHBY-1, and the mirror test now subtracts it), Claude's authentication step is the site's CLAUDE_AUTH_STEP for the owner's HO-1 choice, Sign in when needed (the mirror test reads its template and the note its choice picks), Claude's sign-in line drops the re-add aside that choice makes false, and withheldNote is the site's USAJOBS-COPY-1 wording. Before that, re-synced 2026-11-08 to the seo-connect deploy, BEFORE it ships: the site's W2 copy from fix/seo-connect-fe at ba8e8a8d (src/config/mcp-tools.ts: the first question in a person's words, Claude's dialog as its help article walks it with the detected settings kept, ChatGPT's sign-in line that promises nothing OpenAI does not document, the chat rows that send no seeker to a key) and the server strings of agent-mcp 2026-11-08.1 from fix/connect-mcp at af016311 (HONESTY_RULES rule 3, job-link.ts reading a pasted posting link, FORM_READER_VENDORS reading ten systems' forms; the site holds the five new ones in MCP_FORM_VENDORS_AFTER_DEPLOY until the frontend publish after that deploy), read together through their merge (git merge-tree, which conflicts only in docs/deploy-ledger.json). serverBuild is that build: the mirror test fails while the site's agent-mcp is older (do not push before the site merges it), and npm run check-live fails while the live x-fn-build is older (do not publish before the deploy verifies; live read agent-mcp.2026-11-03.1 on 2026-11-08). The previous copy was the site's main aa2e45cb, matching agent-mcp.2026-11-03.1. The wave-4 tier follows it: apply_myself is a tool, the apply agent's tools are retired (retiredTools, the server's RETIRED_TOOLS, listed to nobody), every read tool but key_status and debug_search answers with no key, anonCaps is the whole MCP_ANON_CAPS (the allowance split by platform; perAddressPerDay, hostPoolPerDay and globalPerDay are the site's legacy names, kept there for its prerender and read by nothing here), fit_resume is a confirmed free key's daily allowance (fitFreePerDay, fitFullPerDay), and addressGloss is the site's count-free MCP_ADDRESS_GLOSS word for word. neverListed and notOnChatGpt are the server's NEVER_LISTED and NOT_ON_CHATGPT (what tools/list leaves out), applyRules is its HONESTY_RULES word for word, formVendors and formVendorsOnChatGpt are the site's MCP_FORM_VENDORS labels and MCP_FORM_VENDORS_ON_CHATGPT, and privacyRows are rows of the site's MCP_PRIVACY_ROWS word for word (the search row is computed there from a flag and a date, so the README links it instead of copying it). hosts[].id order, signInMetaKey, withheldNote and the server-string rows follow it; re-stamp `at` when any of those files changes"
   },
   "tools": [
     {
@@ -126,7 +126,6 @@
   ],
   "formVendors": [
     { "key": "greenhouse", "label": "Greenhouse" },
-    { "key": "ashby", "label": "Ashby" },
     { "key": "recruitee", "label": "Recruitee" },
     { "key": "breezy", "label": "Breezy" },
     { "key": "pinpoint", "label": "Pinpoint" },
@@ -197,7 +196,7 @@
   "freeKeyDailyQuota": 1000,
   "fitFreePerDay": 25,
   "fitFullPerDay": 1000,
-  "withheldNote": "Two hiring systems on the job board are not handed on by this server or the data API: the U.S. federal job feed, whose terms forbid redistributing it as a data feed, and SmartRecruiters, withheld until SmartRecruiters (SAP) permits it. Their postings stay on the job board, where you can open them yourself.",
+  "withheldNote": "One hiring system on the job board is not handed on by this server or the data API: SmartRecruiters, withheld until SmartRecruiters (SAP) permits it. Its postings stay on the job board, where you can open them yourself. U.S. federal announcements are handed on once the agency's statement of who may apply is stored, each with OPM's notice that this is not an official copy; until about every one has that statement, the count of postings your AI searches leaves them all out.",
   "addressGloss": "Free with no key and no account, within a daily allowance that resets at midnight UTC; every answer says how many free calls are left. Claude's servers carry every Claude user, so Claude users share one allowance.",
   "anonAddressHashRetentionDays": 7,
   "freeKeyIdleRevokeDays": 30,
@@ -213,13 +212,13 @@
         "Enter the name: `{{displayName}}`.",
         "Paste this address into the server URL field: `{{url}}` — this address is on Supabase, the company that hosts our server; it is ours. Paste it exactly as it is.",
         "Click **Continue**.",
-        "Claude shows the authentication settings it detected. Keep them as they are and click **Continue**. Searching, reading postings and applying yourself need no sign-in, so there is nothing to change. Claude cannot change a connector's authentication after it is added, so when this server's sign-in is switched on, you may need to remove the connector and add it again to use the tools that need your account.",
+        "Under authentication, choose **Sign in when needed** and click **Continue**. Searching, reading postings and applying yourself need no sign-in, so Claude asks for none. Once this server's sign-in is switched on, Claude asks you to sign in the first time you use a tool that needs your account; you do not add the connector again.",
         "Click **Add**.",
         "In a chat, click **+**, open **Connectors**, and switch **{{displayName}}** on. Claude asks before each tool's first use; allow the read tools — none of them acts on your account.",
         "Ask Claude: `{{exampleQuestion}}`"
       ],
       "verify": "Under **+ → Connectors**, {{displayName}} is on. Ask the first question: {{searchRows}} results with ids come back, and the answer's note begins \"keyless:\" and says how many free lookups are left today.",
-      "signInOn": "if a tool needs your account, a **Connect** card appears in the chat (a connector added while sign-in was off may first need removing and adding again). Click it, sign in to {{displayName}}, press **Allow**, and Claude continues where it stopped. Searching, reading postings and applying yourself never need it."
+      "signInOn": "if a tool needs your account, a **Connect** card appears in the chat. Click it, sign in to {{displayName}}, press **Allow**, and Claude continues where it stopped. Searching, reading postings and applying yourself never need it."
     },
     {
       "id": "chatgpt",

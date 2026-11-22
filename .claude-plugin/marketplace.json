@@ -6,13 +6,13 @@
     "url": "https://resumebooster.work"
   },
   "description": "Resume Booster Job Board for Claude Code",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "plugins": [
     {
       "name": "resumebooster",
       "source": "./",
       "description": "Job search over employers' own hiring systems. Search, read and apply yourself with no key.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": {
         "name": "Resume Booster"
       },

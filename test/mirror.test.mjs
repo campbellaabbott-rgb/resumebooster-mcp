@@ -521,12 +521,45 @@ test("the README's apply section is the free path where the person submits, unde
   assert.ok(section.includes("never submits anything for anyone"));
   assert.ok(section.includes(C.applyRules), "the rules, word for word");
   for (const v of C.formVendors) assert.ok(section.includes(v.label), `names ${v.label}`);
-  const pair = C.formVendors.filter((v) => C.formVendorsOnChatGpt.includes(v.key)).map((v) => v.label);
+  // Exactly the readers, never one more: a vendor the connector stopped
+  // reading (Ashby, OD14-ASHBY-1) left in this sentence over-claims its form.
+  const named = /when the posting's hiring system is ([^,.]+(?:, [^,.]+)*?),? it returns the employer's real application form/.exec(section);
+  assert.ok(named, "the apply sentence's reader list is not found — RE-ANCHOR");
+  assert.deepEqual(named[1].split(/, | or /), C.formVendors.map((v) => v.label), "the apply sentence names a different set of form readers than formVendors");
+  const pair =C.formVendors.filter((v) => C.formVendorsOnChatGpt.includes(v.key)).map((v) => v.label);
   assert.ok(section.includes(`Inside ChatGPT it reads the form only for ${pair.join(" or ")}.`));
   for (const f of ["llms-install.md", "skills/find-jobs/SKILL.md"]) {
     assert.ok(readText(f).includes(C.applyRules), `${f} carries the rules word for word`);
     assert.ok(readText(f).includes("`apply_myself` is how a person applies"), `${f} names the apply path`);
   }
+});
+
+// Which of `keys` a text names as a form reader. Every published form
+// sentence lists its readers BEFORE the phrase ("when the posting's hiring
+// system is Greenhouse, …, it returns the employer's real application form"),
+// so the vendor is looked for on either side of "real application form"
+// within one sentence on one line, and in ChatGPT's "reads the form only for"
+// pair. A vendor named as a posting link ("the employer's own Greenhouse,
+// Lever or Ashby posting link.") is not a form reader and is not reported.
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const formReadersNamed = (text, keys) =>
+  keys.filter((k) => {
+    const v = `\\b${escapeRe(k)}\\b`;
+    return [`${v}[^.\\n]*real application form`, `real application form[^.\\n]*${v}`, `reads the form only for [^.\\n]*${v}`]
+      .some((re) => new RegExp(re, "i").test(text));
+  });
+
+test("teeth: the form-reader check reports a stopped reader in the form sentence as the pages wrote it, and never one named as a posting link", () => {
+  const readme = readText("README.md");
+  // The sentence README.md, llms-install.md and the find-jobs skill carried
+  // at bc54f12, before OD14-ASHBY-1 took Ashby off the connector's readers.
+  const before = "`apply_myself` is how a person applies, free and with no key: when the posting's hiring system is Greenhouse, Ashby, Recruitee, Breezy, Pinpoint, Paylocity, Workable, Teamtailor, Lever or BambooHR, it returns the employer's real application form, every question with its options and who should answer it; otherwise it returns the posting's apply link.";
+  assert.deepEqual(formReadersNamed(`${readme}\n${before}\n`, ["ashby"]), ["ashby"], "the reader missed Ashby listed before \"real application form\"");
+  assert.deepEqual(formReadersNamed(`${readme}\nInside ChatGPT it reads the form only for Greenhouse or Ashby.\n`, ["ashby"]), ["ashby"], "the reader missed Ashby in ChatGPT's pair");
+  assert.deepEqual(formReadersNamed(`${readme}\nWhen the employer uses Greenhouse or Ashby, it returns the employer's real application form.\n`, ["ashby"]), ["ashby"], "the reader missed /agents' own form-sentence shape");
+  const link = "a `https://resumebooster.work/jobs/posting/` page, or the employer's own Greenhouse, Lever or Ashby posting link.";
+  assert.deepEqual(formReadersNamed(`${link}\n${before}`, ["workday"]), [], "a vendor the sentence does not name is reported");
+  assert.deepEqual(formReadersNamed(link, ["ashby"]), [], "a posting link is read as a form reader");
 });
 
 test("the find-jobs skill starts with a search, not key_status, and names only tools the server has", () => {
@@ -594,14 +627,22 @@ test("the allowance row names no key and no app, as the site's row does, because
 
 // What W2 took off /agents (CJ-02, CJ-08, CJ-09, PLT-1107-09): the first
 // question that named a tool and its arguments, the order to pick the
-// sign-in options by hand, the chat row that sent a seeker to a terminal app
-// for a key, and ChatGPT's sign-in promised unconditionally.
+// sign-in options by hand behind an "if Claude asks", the chat row that sent
+// a seeker to a terminal app for a key, and ChatGPT's sign-in promised
+// unconditionally. And what HO-1 took off it (the owner's check of Claude's
+// dialog, 2026-11-18): the step that kept whatever authentication Claude
+// detected, and the sign-in rule's aside that a connector added while sign-in
+// was off may need removing and adding again (the site's MCP_SIGN_IN_NEUTRAL
+// dropped it; with Sign in when needed chosen, step 6 says you do not add the
+// connector again). /agents now names one choice, Sign in when needed, as a
+// plain step (the site's CLAUDE_AUTH_STEP), which the mirror test holds word
+// for word, as it holds the sign-in rule to MCP_SIGN_IN_NEUTRAL.
 const w2RemovedCopy = (text) =>
-  [/call search_jobs with query/, /choose \*\*Sign in when needed\*\*/, /\*\*Register automatically\*\*/, /Do not choose \*\*No sign-in\*\*/, /To use every tool, connect from/, /ChatGPT shows its sign-in/]
+  [/call search_jobs with query/, /If Claude asks about \*\*Authentication\*\*/, /\*\*Register automatically\*\*/, /Do not choose \*\*No sign-in\*\*/, /To use every tool, connect from/, /ChatGPT shows its sign-in/, /Keep them as they are and click/, /added while it was off may need removing and adding again/]
     .filter((re) => re.test(text))
     .map(String);
 
-test("no published file carries copy the site's W2 took off /agents: the tool-call first question, the sign-in choice, the key push in a chat row, ChatGPT's promised sign-in", () => {
+test("no published file carries copy the site's W2 or HO-1 took off /agents: the tool-call first question, the conditional sign-in choice, the key push in a chat row, ChatGPT's promised sign-in, the kept detected settings, the re-add aside in the sign-in rule", () => {
   for (const f of PUBLISHED()) assert.deepEqual(w2RemovedCopy(readText(f)), [], `${f} still says what /agents no longer says`);
   const off = C.troubleshooting.find((r) => r.state === "off");
   assert.ok(off.fix.startsWith("Everything you need to search, read postings in full and apply yourself works with no sign-in."), `the sign-in-off row says what works first: ${off.fix}`);
@@ -616,6 +657,8 @@ test("teeth: the W2 reader reports each removed line pasted into the README", ()
     "Do not choose **No sign-in**: Claude cannot change that later.",
     "To use every tool, connect from Claude Code, Cursor or VS Code with a free key.",
     "if a tool needs your account, ChatGPT shows its sign-in for Resume Booster",
+    "Claude shows the authentication settings it detected. Keep them as they are and click **Continue**.",
+    "Claude, Claude Desktop and ChatGPT have no field for a key. They can sign you in instead — but only while the server's sign-in service is switched on, and a connector added while it was off may need removing and adding again first.",
   ];
   for (const p of pasted) assert.ok(w2RemovedCopy(`${readme}\n${p}\n`).length > 0, `the reader missed "${p}"`);
 });
@@ -624,7 +667,7 @@ test("the Claude steps are the help article's dialog in its order, every label i
   const readme = readText("README.md");
   const section = readme.slice(readme.indexOf("### Claude ("), readme.indexOf("### ChatGPT"));
   const steps = section.slice(section.indexOf("\n1. "), section.indexOf("\nWhen sign-in is on"));
-  const order = ["Click **+ Add**, then **Add custom connector**", "Enter the name:", "Paste this address into the server URL field", "Click **Continue**.", "Keep them as they are and click **Continue**.", "Click **Add**."];
+  const order = ["Click **+ Add**, then **Add custom connector**", "Enter the name:", "Paste this address into the server URL field", "Click **Continue**.", "Under authentication, choose **Sign in when needed** and click **Continue**.", "Click **Add**."];
   let at = -1;
   for (const s of order) {
     const i = steps.indexOf(s, at + 1);
@@ -816,6 +859,18 @@ test(
     assert.ok(withheld, "MCP_WITHHELD_NOTE not found");
     assert.equal(C.withheldNote, withheld[1], "withheldNote drifted from the site's MCP_WITHHELD_NOTE");
 
+    // The sign-in rule is the site's MCP_SIGN_IN_NEUTRAL, word for word, less
+    // its closing "on this page" pointer (the install pages name the page and
+    // hand the curl instead); its unkeyed names are the pages' own list.
+    const neutral = ts.match(/export const MCP_SIGN_IN_NEUTRAL\s*=\s*`([^`]+)`;/);
+    assert.ok(neutral, "MCP_SIGN_IN_NEUTRAL not found as a template — RE-ANCHOR");
+    const onThisPage = " Press **Test the server** on this page for today's state.";
+    assert.ok(neutral[1].endsWith(onThisPage), "MCP_SIGN_IN_NEUTRAL no longer ends with its on-this-page pointer — RE-ANCHOR");
+    const anonProse = C.anonTools.map((n) => `\`${n}\``).reduce((s, n, i, a) => (i === 0 ? n : `${s}${i === a.length - 1 ? " and " : ", "}${n}`), "");
+    const signInRule = neutral[1].slice(0, -onThisPage.length).replace("${anonNames()}", anonProse);
+    assert.ok(!signInRule.includes("${"), "MCP_SIGN_IN_NEUTRAL reads a constant this check does not fill — RE-ANCHOR");
+    for (const f of ["README.md", "llms-install.md"]) assert.ok(readText(f).includes(`${signInRule} Today's state:`), `${f}: the sign-in rule drifted from the site's MCP_SIGN_IN_NEUTRAL`);
+
     const quota = ts.match(/MCP_FREE_KEY_DAILY_QUOTA\s*=\s*(\d+)/);
     assert.ok(quota, "MCP_FREE_KEY_DAILY_QUOTA not found");
     assert.equal(C.freeKeyDailyQuota, Number(quota[1]));
@@ -869,7 +924,15 @@ test(
       assert.ok(m, `${name} not found in _shared/application-form.ts — RE-ANCHOR`);
       return [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
     };
-    assert.deepEqual(C.formVendors.map((v) => v.key).sort(), serverVendors("FORM_READER_VENDORS").sort(), "formVendors names a system the server does not read, or leaves out one it does (FORM_READER_VENDORS)");
+    // The connector reads the shared readers less its own FORM_NOT_READ_HERE
+    // (agent-mcp/index.ts; Ashby since OD14-ASHBY-1, agent-mcp 2026-11-18.2),
+    // which the site mirrors as MCP_FORM_NOT_READ_HERE.
+    const notReadHere = stripComments(readFileSync(join(siblingDir, "supabase", "functions", "agent-mcp", "index.ts"), "utf8")).match(/const FORM_NOT_READ_HERE[^=]*=\s*\[([^\]]*)\]/);
+    const notRead = notReadHere ? [...notReadHere[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]) : [];
+    assert.deepEqual(C.formVendors.map((v) => v.key).sort(), serverVendors("FORM_READER_VENDORS").filter((k) => !notRead.includes(k)).sort(), "formVendors names a system the connector does not read, or leaves out one it does (FORM_READER_VENDORS less FORM_NOT_READ_HERE)");
+    const siteNotRead = ts.match(/export const MCP_FORM_NOT_READ_HERE[^=]*=\s*\[([^\]]*)\]/);
+    if (siteNotRead) assert.deepEqual([...siteNotRead[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]).sort(), [...notRead].sort(), "the site's MCP_FORM_NOT_READ_HERE and agent-mcp's FORM_NOT_READ_HERE disagree — RE-ANCHOR");
+    for (const f of PUBLISHED()) assert.deepEqual(formReadersNamed(readText(f), notRead), [], `${f} names a form reader the connector does not read (agent-mcp's FORM_NOT_READ_HERE)`);
     const onChatGpt = ts.match(/export const MCP_FORM_VENDORS_ON_CHATGPT:[^=]*=\s*\[([^\]]*)\]/);
     assert.ok(onChatGpt, "MCP_FORM_VENDORS_ON_CHATGPT not found — RE-ANCHOR");
     assert.deepEqual(C.formVendorsOnChatGpt, [...onChatGpt[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]));
@@ -902,15 +965,27 @@ test(
     // Claude's dialog as the site walks it (W2, CJ-02): the authentication
     // step is the site's CLAUDE_AUTH_STEP, text and note, word for word; the
     // address goes into the field the site names; and every bold label up to
-    // the dialog's **Add** is the site's, in the site's order.
-    const authStep = ts.match(/const CLAUDE_AUTH_STEP[^=]*=\s*\{\s*text:\s*"((?:[^"\\]|\\.)*)",\s*note:\s*"((?:[^"\\]|\\.)*)",?\s*\};/);
-    assert.ok(authStep, "CLAUDE_AUTH_STEP not found as { text, note } — RE-ANCHOR");
+    // the dialog's **Add** is the site's, in the site's order. Since HO-1
+    // (2026-11-18) the step names MCP_CLAUDE_AUTH_CHOICE in a template and
+    // picks its note by that choice; a plain { text, note } is read too.
+    const authBlock = ts.match(/const CLAUDE_AUTH_STEP[^=]*=\s*\{([\s\S]*?)\n?\};/);
+    assert.ok(authBlock, "CLAUDE_AUTH_STEP not found — RE-ANCHOR");
     const unquote = (s) => JSON.parse(`"${s}"`);
+    const authChoice = ts.match(/export const MCP_CLAUDE_AUTH_CHOICE[^=]*=\s*"([^"]+)"/);
+    const fillChoice = (s) => (authChoice ? s.replace(/\$\{MCP_CLAUDE_AUTH_CHOICE\}/g, authChoice[1]) : s);
+    const textM = authBlock[1].match(/text:\s*(?:"((?:[^"\\]|\\.)*)"|`((?:[^`\\]|\\.)*)`)/);
+    const noteChosen = authBlock[1].match(/note:\s*MCP_CLAUDE_AUTH_CHOICE\s*===\s*"([^"]+)"\s*\?\s*"((?:[^"\\]|\\.)*)"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    const notePlain = authBlock[1].match(/note:\s*"((?:[^"\\]|\\.)*)"/);
+    assert.ok(textM && (noteChosen || notePlain), "CLAUDE_AUTH_STEP's text or note is in a shape this reader does not take — RE-ANCHOR");
+    assert.ok(!noteChosen || authChoice, "CLAUDE_AUTH_STEP picks its note by MCP_CLAUDE_AUTH_CHOICE, which is not found — RE-ANCHOR");
+    const authText = textM[1] !== undefined ? unquote(textM[1]) : fillChoice(textM[2].replace(/\\`/g, "`"));
+    const authNote = noteChosen ? unquote(authChoice[1] === noteChosen[1] ? noteChosen[2] : noteChosen[3]) : unquote(notePlain[1]);
+    assert.ok(!authText.includes("${"), "CLAUDE_AUTH_STEP's text reads a constant this check does not fill — RE-ANCHOR");
     const claudeSteps = C.hosts.find((h) => h.id === "claude").steps.map(fillText);
-    assert.ok(claudeSteps.includes(`${unquote(authStep[1])} ${unquote(authStep[2])}`), "the Claude authentication step drifted from the site's CLAUDE_AUTH_STEP (text then note, word for word)");
+    assert.ok(claudeSteps.includes(`${authText} ${authNote}`), "the Claude authentication step drifted from the site's CLAUDE_AUTH_STEP (text then note, word for word)");
     const manual = ts.match(/const claudeManualSteps\s*=\s*\([^)]*\)[^=]*=>\s*\[([\s\S]*?)\n\];/);
     assert.ok(manual, "claudeManualSteps not found — RE-ANCHOR");
-    const manualText = manual[1].replace(/\bCLAUDE_AUTH_STEP\b/, `{ text: "${authStep[1]}", note: "${authStep[2]}" }`);
+    const manualText = manual[1].replace(/\bCLAUDE_AUTH_STEP\b/, `{ text: "${authText}", note: "${authNote}" }`);
     const into = manualText.match(/addressStep\(ctx, "([^"]+)"\)/);
     assert.ok(into, "the Claude address step's field is not named — RE-ANCHOR");
     assert.ok(claudeSteps.some((s) => s.startsWith(`Paste this address into ${into[1]}:`)), `the address step names a field the site does not: ${into[1]}`);

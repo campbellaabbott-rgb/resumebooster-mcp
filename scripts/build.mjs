@@ -419,7 +419,13 @@ const applyRulesSentence = `An AI helping someone apply follows the server's own
 // is a fact the server computes at request time and publishes on its own
 // initialize answer; this file is rebuilt by hand, so it states the rule and
 // hands the reader the one-line curl that prints today's state.
-const signInRule = `Claude, Claude Desktop and ChatGPT have no field for a key. They can sign you in instead — but only while the server's sign-in service is switched on, and a connector added while it was off may need removing and adding again first. When it is off, a tool that needs your account answers in words (no Connect card), and ${prose(ANON.map((n) => `\`${n}\``))} still answer.`;
+// The words are the site's MCP_SIGN_IN_NEUTRAL (the /agents sentence), less
+// its "on this page" pointer, which the curl line below replaces; the mirror
+// test holds them word for word. Since HO-1 (2026-11-18) Claude's connector
+// is added with Sign in when needed, so the rule carries no remove-and-add
+// step: ChatGPT's may-need-adding-again line is its own section's, as on the
+// site (the ChatGPT host's signIn line).
+const signInRule = `Claude and ChatGPT have no field for a key. They sign you in instead — but only while the server's sign-in service is switched on. When it is off, a tool that needs your account answers in words (no Connect card), and ${prose(ANON.map((n) => `\`${n}\``))} still answer.`;
 const signInReaderTail = `which prints \`"on"\`, \`"off"\` or \`"unknown"\` — the same word the page shows (the server reads the sign-in service's own metadata at \`${AS_URL}\` and caches the answer briefly).`;
 const signInParagraph = `${signInRule} Today's state: press **Test the server** on ${C.agentsPage}, or run\n\n\`\`\`sh\n${signInReader}\n\`\`\`\n\n${signInReaderTail}`;
 // board_stats is cached and never counted (agent-mcp's keyless board_stats
