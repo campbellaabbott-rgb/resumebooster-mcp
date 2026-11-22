@@ -19,7 +19,7 @@ Job search over employers' own hiring systems. Search, read and apply yourself w
 
 Every tool that takes a job (`get_job`, `get_jobs`, `fetch`, `check_jobs_open` and `apply_myself`) takes its id or the posting's link: a `https://resumebooster.work/jobs?job=<id>` link, a `https://resumebooster.work/jobs/posting/` page, or the employer's own Greenhouse, Lever or Ashby posting link.
 
-Two hiring systems on the job board are not handed on by this server or the data API: the U.S. federal job feed, which we choose not to redistribute for now, and SmartRecruiters, withheld until SmartRecruiters (SAP) permits it. Their postings stay on the job board, where you can open them yourself.
+One hiring system on the job board is not handed on by this server or the data API: SmartRecruiters, withheld until SmartRecruiters (SAP) permits it. Its postings stay on the job board, where you can open them yourself. U.S. federal announcements are handed on once the agency's statement of who may apply is stored, each with OPM's notice that this is not an official copy; until about every one has that statement, the count of postings your AI searches leaves them all out.
 
 The board cannot filter by visa sponsorship: no search filter takes it. An AI asked about sponsorship says so plainly, and never infers it from a posting.
 
@@ -381,8 +381,8 @@ A key is stored as its hash and its first characters, never the key. The tools n
 ## This repository
 
 - `mcp.config.json` is the only place a URL, tool name, cap, quota, host step or troubleshooting row is written. `npm run build` regenerates every other file; `npm test` fails if any generated file was edited by hand or the constants changed without a rebuild, validates each manifest against the schema its host publishes (copies under `schemas/`, fetched 2026-09-16), and checks that no generated file carries a placeholder inside an Authorization value.
-- The tool list, the host ids (the six above and the long tail) and the sign-in key are a mirror of the site's own (`resume-signal-pro/src/config/mcp-tools.ts`), and the server's own words are quoted from its build `agent-mcp.2026-11-18.2`; when either changes, this file is re-synced and rebuilt.
-- `npm run check-live` asks the live server for its `tools/list` with no key (and with `RESUMEBOOSTER_KEY` too, when it is set) and fails if the tool bullets at the top of this file name a different set, or if the server runs a build older than `agent-mcp.2026-11-18.2`. It reads production, so `npm test` never runs it; the weekly CI run does.
+- The tool list, the host ids (the six above and the long tail) and the sign-in key are a mirror of the site's own (`resume-signal-pro/src/config/mcp-tools.ts`), and the server's own words are quoted from its build `agent-mcp.2026-11-21.2`; when either changes, this file is re-synced and rebuilt.
+- `npm run check-live` asks the live server for its `tools/list` with no key (and with `RESUMEBOOSTER_KEY` too, when it is set) and fails if the tool bullets at the top of this file name a different set, or if the server runs a build older than `agent-mcp.2026-11-21.2`. It reads production, so `npm test` never runs it; the weekly CI run does.
 - Every vendor label in the steps above is quoted from the vendor's documentation on the date in [docs-snapshot.md](./docs-snapshot.md); a label that is not there is not published here.
 - `server.json` is the entry for the official MCP Registry, at version 1.1.1; the registry's API record linked above shows the version it serves.
 

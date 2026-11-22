@@ -119,7 +119,7 @@ A key whose email address was confirmed adds: `fit_resume`.
 
 Every tool that takes a job (`get_job`, `get_jobs`, `fetch`, `check_jobs_open` and `apply_myself`) takes its id or the posting's link: a `https://resumebooster.work/jobs?job=<id>` link, a `https://resumebooster.work/jobs/posting/` page, or the employer's own Greenhouse, Lever or Ashby posting link.
 
-Two hiring systems on the job board are not handed on by this server or the data API: the U.S. federal job feed, which we choose not to redistribute for now, and SmartRecruiters, withheld until SmartRecruiters (SAP) permits it. Their postings stay on the job board, where you can open them yourself.
+One hiring system on the job board is not handed on by this server or the data API: SmartRecruiters, withheld until SmartRecruiters (SAP) permits it. Its postings stay on the job board, where you can open them yourself. U.S. federal announcements are handed on once the agency's statement of who may apply is stored, each with OPM's notice that this is not an official copy; until about every one has that statement, the count of postings your AI searches leaves them all out.
 
 The board cannot filter by visa sponsorship: no search filter takes it. An AI asked about sponsorship says so plainly, and never infers it from a posting.
 
